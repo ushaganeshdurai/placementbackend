@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1739369612629,
+      "tag": "20250212141332_abnormal_sleeper",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1739423207594,
+      "tag": "0001_blushing_randall_flagg",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1739424200676,
+      "tag": "0002_sharp_night_nurse",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1739424342854,
+      "tag": "0003_loving_paper_doll",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1739424681778,
+      "tag": "0004_sudden_the_call",
+      "breakpoints": true
+    }
+  ]
+}
