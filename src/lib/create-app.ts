@@ -16,7 +16,7 @@ export function createRouter() {
 export default function createApp() {
   const app = createRouter();
   app.use(serveEmojiFavicon("📝"));
-  app.use(pinoLogger());
+  // app.use(pinoLogger());
 
   app.notFound(notFound);
   app.onError(onError);

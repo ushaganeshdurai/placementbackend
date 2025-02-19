@@ -3,37 +3,18 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import { jsonContent, jsonContentRequired } from "stoker/openapi/helpers";
 import { createErrorSchema, IdUUIDParamsSchema } from "stoker/openapi/schemas";
 import { notFoundSchema } from "@/lib/constants";
-import { insertSuperAdminSchema, loginSuperAdminSchema, selectSuperAdminSchema } from "@/db/schemas/superAdminSchema";
+import { loginSuperAdminSchema, selectSuperAdminSchema } from "@/db/schemas/superAdminSchema";
 import { insertStaffSchema, selectStaffSchema } from "@/db/schemas/staffSchema";
 import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
+import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 
 
-//get super admin data
-export const create = createRoute({
-  path: "/superadmin/register",
-  method: "post",
-  request: {
-    body: jsonContentRequired(
-      insertSuperAdminSchema,
-      "The super admin to register",
-    ),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      selectSuperAdminSchema,
-      "The created super admin",
-    ),
-    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      createErrorSchema(insertSuperAdminSchema),
-      "The validation error(s)",
-    ),
-  },
-});
+
 
 
 //log in the admin
 export const loginAdmin = createRoute({
-  path: "/superadmin",
+  path: "/superadmin/login",
   method: "post",
   request: {
     body: jsonContentRequired(loginSuperAdminSchema, "The super admin login credentials"),
@@ -43,79 +24,54 @@ export const loginAdmin = createRoute({
       { message: "Invalid credentials" },
       "Unauthorized access"
     ),
-    [302]: {
+    [HttpStatusCodes.MOVED_TEMPORARILY]: {
       description: "Redirect to the admin page",
       headers: {
         Location: {
           schema: {
             type: 'string',
-            example: '/superadmin/{id}',
+            example: '/superadmin',
           },
-        },  
-      }, 
+        },
+      },
     },
   },
+  middleware: [supabaseMiddleware] as const
 });
 
-
-
-
-
-export const remove = createRoute({
-  path: "/superadmin/{id}",
-  method: "delete",
-  request: {
-    params: IdUUIDParamsSchema,
-  },
-
-  responses: {
-    [HttpStatusCodes.NO_CONTENT]: {
-      description: "Super Admin deleted",
-    },
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      notFoundSchema,
-      "Super Admin not found",
-    ),
-    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      createErrorSchema(IdUUIDParamsSchema),
-      "Invalid id error",
-    ),
-  },
-});
 
 
 
 //to display what is in particular admin's data
 export const getOne = createRoute({
-  path: "/superadmin/{id}",
+  path: "/superadmin",
   method: "get",
-  request: {
-    params: IdUUIDParamsSchema,
-  },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       selectSuperAdminSchema,
-      "The requested super admin",
+      "The requested super admin with student and staff details"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createErrorSchema(selectSuperAdminSchema),
+      "Unauthorized access - Token required"
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       notFoundSchema,
-      "Super Admin not found",
+      "Super Admin not found"
     ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createErrorSchema(IdUUIDParamsSchema),
-      "Invalid id error",
+      "Invalid ID format"
     ),
   },
+  middlewares: [supabaseMiddleware],
 });
-
-
-
 
 
 
 //get staffs multiple data (post request)
 export const createstaffsroute = createRoute({
-  path: "/superadmin/{id}/createStaffs",
+  path: "/superadmin/createStaffs",
   method: "post",
   request: {
     body: jsonContentRequired(
@@ -140,7 +96,7 @@ export const createstaffsroute = createRoute({
 //get the id of staff to be deleted from params
 
 export const removestaffroute = createRoute({
-  path: "/superadmin/{id}/staff/{staff_id}",
+  path: "/superadmin/staff/{id}",
   method: "delete",
   request: {
     params: IdUUIDParamsSchema,
@@ -166,17 +122,17 @@ export const removestaffroute = createRoute({
 
 // To create many students at once
 export const createstudentsroute = createRoute({
-  path: "/superadmin/{id}/createstudents",
+  path: "/superadmin/createstudents",
   method: "post",
   request: {
     body: jsonContentRequired(
-      z.array(insertStudentSchema),  
+      z.array(insertStudentSchema),
       "Add multiple students",
     ),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      z.array(selectStudentSchema),  
+      z.array(selectStudentSchema),
       "The created many students",
     ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
@@ -189,7 +145,7 @@ export const createstudentsroute = createRoute({
 
 // To remove one student
 export const removestudentroute = createRoute({
-  path: "/superadmin/{id}/student/{student_id}",
+  path: "/superadmin/student/{id}",
   method: "delete",
   request: {
     params: IdUUIDParamsSchema,
@@ -212,10 +168,8 @@ export const removestudentroute = createRoute({
 
 
 
-export type CreateSuperAdminRoute = typeof create;
 export type LoginSuperAdmin = typeof loginAdmin
 export type GetOneRoute = typeof getOne;
-export type RemoveRoute = typeof remove;
 export type CreateStaffsRoute = typeof createstaffsroute;
 export type RemoveStaffRoute = typeof removestaffroute;
 export type CreateStudentsRoute = typeof createstudentsroute;

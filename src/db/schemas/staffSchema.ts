@@ -1,20 +1,17 @@
-import { pgTable, uuid, text, timestamp, unique, integer } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, unique, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod"; // Import Zod for validation
+import { z } from "zod"; 
+import { users } from "./users";
 
 export const staff = pgTable('staff', {
-  staffId: uuid('staff_id').primaryKey().defaultRandom(),
+  staffId: uuid('staff_id').primaryKey().defaultRandom().references(() => users.id),
   empId: integer('empid').unique(),
   name: text('name').notNull(),
-  username: text('username').notNull(),
   emailId: text('email_id').notNull(),
-  password: text('password').notNull(),
-  department: text('department').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+  password: text('password'),
+  department: text('department'),
 }, (staff) => ({
   uniqueEmail: unique("staff_email_unique").on(staff.emailId),
-  uniqueUsername: unique("staff_username_unique").on(staff.username),
 }));
 
 // Schema for selecting staff records
@@ -24,15 +21,11 @@ export const selectStaffSchema = createSelectSchema(staff);
 export const insertStaffSchema = createInsertSchema(staff, {
   emailId: (schema) => schema.emailId.regex(/^[a-zA-Z0-9]+@saec\.ac\.in$/),
 }).required({
-  name: true,
-  username: true,
+
   emailId: true,
   password: true,
-  department: true,
 }).omit({
-  staffId: true,
-  createdAt: true,
-  updatedAt: true,
+  staffId: true, name: true,
 });
 
 // Schema for deleting a staff record

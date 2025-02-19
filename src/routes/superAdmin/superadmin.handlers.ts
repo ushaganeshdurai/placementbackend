@@ -1,23 +1,14 @@
 import { eq } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
-import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
-import bcrypt from 'bcryptjs'
 import { superAdmin } from "@/db/schemas/superAdminSchema";
-import type { CreateStaffsRoute, CreateStudentsRoute, CreateSuperAdminRoute, GetOneRoute, LoginSuperAdmin, RemoveRoute, RemoveStaffRoute, RemoveStudentRoute } from "./superadmin.routes";
+import type { CreateStaffsRoute, CreateStudentsRoute, GetOneRoute, LoginSuperAdmin, RemoveStaffRoute, RemoveStudentRoute } from "./superadmin.routes";
 import { staff } from "@/db/schemas/staffSchema";
 import { students } from "@/db/schemas/studentSchema";
+import { getCookie, setCookie } from "hono/cookie";
+import { sign, verify } from "hono/jwt";
 
-
-
-export const create: AppRouteHandler<CreateSuperAdminRoute> = async (c) => {
-  const newSuperAdmin = c.req.valid("json");
-  const hashedPassword = await bcrypt.hash(newSuperAdmin.password, 10);
-  const newSuperAdminWithHashedPassword = { ...newSuperAdmin, password: hashedPassword }
-  const [insertedSuperAdmin] = await db.insert(superAdmin).values(newSuperAdminWithHashedPassword).returning();
-  return c.json(insertedSuperAdmin, HttpStatusCodes.OK);
-};
 
 // login the admin
 export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
@@ -31,70 +22,68 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
     .execute();
 
   if (queryAdmin.length === 0) {
-    return c.json(
-      { error: "Invalid credentials" },
-      401
-    );
+    return c.json({ error: "Invalid credentials" }, 401);
   }
 
   const admin = queryAdmin[0];
-  console.log("from the login admin", admin.id);
-  const passwordMatch = await bcrypt.compare(password, admin.password);
 
-  if (!passwordMatch) {
-    return c.json(
-      { error: "Invalid credentials" },
-      401
-    );
-  }
+  const SECRET_KEY = process.env.SECRET_KEY!;
+  const sessionToken = await sign({ id: admin.id, role: "superadmin" }, SECRET_KEY);
 
-  return c.redirect(`/superadmin/${admin.id}`, 302);
+  // Set cookie with proper options
+  setCookie(c, "admin_session", sessionToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production", // Secure only in production
+    sameSite: "Lax",
+    path: "/",
+    maxAge: 3600, // 1 hour
+  });
+
+  return c.json(
+    {
+      message: "Login successful",
+      redirect: "/superadmin",
+    },
+    200
+  );
 };
-
 
 
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
-  const { id } = c.req.valid("param");
-
-  console.log("from get one", id);
-
-  const newSuperAdmin = await db
-    .select()
-    .from(superAdmin)
-    .where(eq(superAdmin.id, id))  // id is now a string
-    .limit(1)
-    .execute();
-
-  if (newSuperAdmin.length === 0) {
-    return c.json(
-      { message: HttpStatusPhrases.NOT_FOUND },
-      HttpStatusCodes.NOT_FOUND
-    );
+  const jwtToken = getCookie(c, "admin_session");
+  const oauthSession = getCookie(c, "oauth_session");
+  if (!jwtToken || !oauthSession) {
+    return c.json({ error: "Unauthorized: No session found" }, 401);
   }
 
-  return c.json(newSuperAdmin[0], HttpStatusCodes.OK);
-};
+  let userId = null;
+  let userRole = null;
+  
+  try {
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    const decoded = await verify(jwtToken!, SECRET_KEY);
 
-
-
-
-export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
-  const { id } = c.req.valid("param");
-
-  // Ensure id is a string
-  const result = await db.delete(superAdmin)
-    .where(eq(superAdmin.id, String(id))); // Convert id to string
-
-  if (result.length === 0) {
-    return c.json(
-      { message: HttpStatusPhrases.NOT_FOUND },
-      HttpStatusCodes.NOT_FOUND
-    );
+    console.log("Decoded JWT:", decoded);
+    if (!decoded) throw new Error("Invalid session");
+    userId = decoded.id;
+    userRole = decoded.role;
+  } catch (error) {
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session" }, 401);
   }
 
-  return c.body(null, HttpStatusCodes.NO_CONTENT);
-};
+  console.log("Cookies:", c.req.header("cookie"));
 
+
+
+  const staffList = await db.select().from(staff).execute();
+  const studentList = await db.select().from(students).execute();
+
+  if (userRole === "super_admin") {
+    return c.json({ userId, role: userRole, staff: staffList, students: studentList }, 200);
+  }
+  
+};
 
 
 
@@ -103,9 +92,7 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
   try {
     const newStaffs = c.req.valid('json');
 
-    // Instead of returning a 400 error
     if (!Array.isArray(newStaffs)) {
-      // Return empty array with 200 status since that's what the route expects
       return c.json([], HttpStatusCodes.OK);
     }
 
@@ -113,7 +100,6 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
     return c.json(insertedStaffs, HttpStatusCodes.OK);
 
   } catch (error) {
-    // Instead of returning error objects, return empty array
     console.error('Staff creation error:', error);
     return c.json([], HttpStatusCodes.OK);
   }
@@ -124,11 +110,11 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
 
 //Remove Staff
 export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
-  const { staffId } = c.req.valid("param");
+  const { id } = c.req.valid("param");
 
   try {
     const result = await db.delete(staff)
-      .where(eq(staff.staffId, staffId)); 
+      .where(eq(staff.staffId, id));
 
     if (result.length === 0) {
       return c.json({
@@ -178,10 +164,10 @@ export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) =>
 
 export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
   try {
-    const { student_id } = c.req.valid("param");
+    const { id } = c.req.valid("param");
 
     const result = await db.delete(students)
-      .where(eq(students.studentId, student_id));
+      .where(eq(students.studentId, id));
 
     if (result.length === 0) {
       return c.json({

@@ -17,6 +17,7 @@
     "@hono/zod-openapi": "^0.18.3",
     "@libsql/client": "^0.14.0",
     "@scalar/hono-api-reference": "^0.5.165",
+    "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.48.1",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
@@ -31,6 +32,7 @@
     "pino-pretty": "^13.0.0",
     "postgres": "^3.4.5",
     "stoker": "1.4.2",
+    "uuid": "^11.0.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {

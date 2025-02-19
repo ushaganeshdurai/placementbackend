@@ -1,6 +1,6 @@
 {
-  "id": "9b8f6147-b329-4448-9045-cd91dd8d1f86",
-  "prevId": "eeb357c9-8798-48ac-ad55-f722c1f2c97c",
+  "id": "74609624-b3c5-4215-8d3d-4938e4a688f8",
+  "prevId": "6bf65490-06a0-4457-8295-5cebb1b37227",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -27,12 +27,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "username": {
-          "name": "username",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "email_id": {
           "name": "email_id",
           "type": "text",
@@ -43,31 +37,32 @@
           "name": "password",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "department": {
           "name": "department",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "staff_staff_id_users_id_fk": {
+          "name": "staff_staff_id_users_id_fk",
+          "tableFrom": "staff",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "staff_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "staff_empid_unique": {
@@ -82,13 +77,6 @@
           "nullsNotDistinct": false,
           "columns": [
             "email_id"
-          ]
-        },
-        "staff_username_unique": {
-          "name": "staff_username_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "username"
           ]
         }
       },
@@ -143,12 +131,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "username": {
-          "name": "username",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "tenth_mark": {
           "name": "tenth_mark",
           "type": "double precision",
@@ -183,7 +165,13 @@
           "name": "reg_no",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
+        },
+        "roll_no": {
+          "name": "roll_no",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
         },
         "department": {
           "name": "department",
@@ -202,24 +190,38 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "students_student_id_users_id_fk": {
+          "name": "students_student_id_users_id_fk",
+          "tableFrom": "students",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "student_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "students_staff_id_staff_staff_id_fk": {
+          "name": "students_staff_id_staff_staff_id_fk",
+          "tableFrom": "students",
+          "tableTo": "staff",
+          "columnsFrom": [
+            "staff_id"
+          ],
+          "columnsTo": [
+            "staff_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "students_reg_no_unique": {
@@ -229,18 +231,18 @@
             "reg_no"
           ]
         },
+        "students_roll_no_unique": {
+          "name": "students_roll_no_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "roll_no"
+          ]
+        },
         "students_email_id_unique": {
           "name": "students_email_id_unique",
           "nullsNotDistinct": false,
           "columns": [
             "email_id"
-          ]
-        },
-        "students_username_unique": {
-          "name": "students_username_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "username"
           ]
         }
       },
@@ -265,6 +267,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "userId": {
+          "name": "userId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "password": {
           "name": "password",
           "type": "text",
@@ -275,33 +283,67 @@
           "name": "student_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "staff_id": {
           "name": "staff_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "super_admin_userId_users_id_fk": {
+          "name": "super_admin_userId_users_id_fk",
+          "tableFrom": "super_admin",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "super_admin_student_id_students_student_id_fk": {
+          "name": "super_admin_student_id_students_student_id_fk",
+          "tableFrom": "super_admin",
+          "tableTo": "students",
+          "columnsFrom": [
+            "student_id"
+          ],
+          "columnsTo": [
+            "student_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "super_admin_staff_id_staff_staff_id_fk": {
+          "name": "super_admin_staff_id_staff_staff_id_fk",
+          "tableFrom": "super_admin",
+          "tableTo": "staff",
+          "columnsFrom": [
+            "staff_id"
+          ],
+          "columnsTo": [
+            "staff_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "super_admin_userId_unique": {
+          "name": "super_admin_userId_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "userId"
+          ]
+        },
         "super_admin_email_unique": {
           "name": "super_admin_email_unique",
           "nullsNotDistinct": false,
@@ -310,6 +352,66 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.profiles": {
+      "name": "profiles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_role": {
+          "name": "user_role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "profiles_id_fkey": {
+          "name": "profiles_id_fkey",
+          "tableFrom": "profiles",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "auth.users": {
+      "name": "users",
+      "schema": "auth",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
