@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
+import bcrypt from 'bcryptjs'
 import { superAdmin } from "@/db/schemas/superAdminSchema";
 import type { CreateStaffsRoute, CreateStudentsRoute, GetOneRoute, LoginSuperAdmin, RemoveStaffRoute, RemoveStudentRoute } from "./superadmin.routes";
 import { staff } from "@/db/schemas/staffSchema";
@@ -27,80 +28,115 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
 
   const admin = queryAdmin[0];
 
-  const SECRET_KEY = process.env.SECRET_KEY!;
-  const sessionToken = await sign({ id: admin.id, role: "superadmin" }, SECRET_KEY);
+  const isPasswordValid = await bcrypt.compare(password, admin.password);
 
+  if (!isPasswordValid) {
+    return c.json({ error: "Invalid credentials" }, 401);
+  }
+
+
+  const SECRET_KEY = process.env.SECRET_KEY!;
+  const sessionToken = await sign({ id: admin.id, role: "super_admin" }, SECRET_KEY);
+  console.log("Context:", c);
   // Set cookie with proper options
   setCookie(c, "admin_session", sessionToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // Secure only in production
+    secure: process.env.NODE_ENV !== "production", // Secure only in production
     sameSite: "Lax",
     path: "/",
     maxAge: 3600, // 1 hour
   });
 
-  return c.json(
-    {
-      message: "Login successful",
-      redirect: "/superadmin",
-    },
-    200
-  );
+  // return c.json(
+  //   {
+  //     message: "Login successful",
+  //     redirect: "/superadmin",
+  //   },
+  //   302
+  // );
+  return c.redirect("/superadmin",302)
 };
 
 
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
-  const jwtToken = getCookie(c, "admin_session");
-  const oauthSession = getCookie(c, "oauth_session");
-  if (!jwtToken || !oauthSession) {
+  const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+
+  if (!jwtToken) {
     return c.json({ error: "Unauthorized: No session found" }, 401);
   }
 
   let userId = null;
   let userRole = null;
-  
+
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken!, SECRET_KEY);
-
-    console.log("Decoded JWT:", decoded);
     if (!decoded) throw new Error("Invalid session");
     userId = decoded.id;
     userRole = decoded.role;
   } catch (error) {
+    if ( error=== "TokenExpiredError") {
+      return c.json({ error: "Session expired" }, 401);
+    }
     console.error("Session Verification Error:", error);
     return c.json({ error: "Invalid session" }, 401);
   }
 
-  console.log("Cookies:", c.req.header("cookie"));
-
-
-
-  const staffList = await db.select().from(staff).execute();
-  const studentList = await db.select().from(students).execute();
-
-  if (userRole === "super_admin") {
-    return c.json({ userId, role: userRole, staff: staffList, students: studentList }, 200);
+  if (userRole !== "super_admin"||userRole ==="superadmin") {
+    return c.json({ error: "Unauthorized: Insufficient role" }, 403);
   }
-  
-};
 
+  try {
+    const staffList = await db.select().from(staff).execute();
+    const studentList = await db.select().from(students).execute();
+    
+    return c.json({
+      success: "Authorization successful",
+      userId,
+      role: userRole,
+      staff: staffList,
+      students: studentList
+    }, 200);
+
+  } catch (error) {
+    console.error("Database query error:", error);
+    return c.json({ error: "Failed to fetch data" }, 500);
+  }
+};
 
 
 //Add Staff
 export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
   try {
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session")
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+    let userId = null;
+    let userRole = null;
+    try {
+      const SECRET_KEY = process.env.SECRET_KEY!;
+      const decoded = await verify(jwtToken!, SECRET_KEY);
+      console.log("Decoded JWT:", decoded);
+      if (!decoded) throw new Error("Invalid session");
+      userId = decoded.id;
+      userRole = decoded.role;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
     const newStaffs = c.req.valid('json');
-
     if (!Array.isArray(newStaffs)) {
       return c.json([], HttpStatusCodes.OK);
     }
+    if (userRole === "super_admin") {
+      const insertedStaffs = await db.insert(staff).values(newStaffs).returning();
+      return c.json(insertedStaffs, HttpStatusCodes.OK);
 
-    const insertedStaffs = await db.insert(staff).values(newStaffs).returning();
-    return c.json(insertedStaffs, HttpStatusCodes.OK);
+    }
 
   } catch (error) {
-    console.error('Staff creation error:', error);
+    console.error('Staffs creation error:', error);
     return c.json([], HttpStatusCodes.OK);
   }
 };

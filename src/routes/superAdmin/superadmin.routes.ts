@@ -30,13 +30,12 @@ export const loginAdmin = createRoute({
         Location: {
           schema: {
             type: 'string',
-            example: '/superadmin',
           },
         },
       },
     },
   },
-  middleware: [supabaseMiddleware] as const
+  // middleware: [supabaseMiddleware] as const
 });
 
 
@@ -71,7 +70,7 @@ export const getOne = createRoute({
 
 //get staffs multiple data (post request)
 export const createstaffsroute = createRoute({
-  path: "/superadmin/createStaffs",
+  path: "/superadmin/createstaffs",
   method: "post",
   request: {
     body: jsonContentRequired(

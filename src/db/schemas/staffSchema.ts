@@ -21,11 +21,11 @@ export const selectStaffSchema = createSelectSchema(staff);
 export const insertStaffSchema = createInsertSchema(staff, {
   emailId: (schema) => schema.emailId.regex(/^[a-zA-Z0-9]+@saec\.ac\.in$/),
 }).required({
-
   emailId: true,
+  name:true,
   password: true,
 }).omit({
-  staffId: true, name: true,
+  staffId: true,
 });
 
 // Schema for deleting a staff record

@@ -105,8 +105,9 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     sameSite: "Lax",
     path: "/",
     maxAge: 3600,
-    domain:"localhost"
+    domain: "localhost"
   });
+  setCookie(c, "admin_session", "", { path: "/", maxAge: 0 })
   if (userRole === 'super_admin') { return c.redirect("/superadmin"); }
   else if (userRole === 'staff') { return c.redirect("/staff") }
   else { return c.redirect("/student") }
