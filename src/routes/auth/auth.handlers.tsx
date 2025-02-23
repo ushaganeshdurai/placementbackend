@@ -55,7 +55,7 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   const firstSeven = user?.email?.substring(0, 7);
   const checkingIfStudent = /^[0-9]{7}$/.test(firstSeven || "");
 
-  if (user.email && user.email === "gushanandhini2004@gmail.com") {
+  if (user.email && (user.email === "gushanandhini2004@gmail.com")||(user.email==="wpage2098@gmail.com")||(user.email==="madhumegha900@gmail.com")) {
     userRole = "super_admin";
   } else if (user.email && !user.email.includes("@saec.ac.in")) {
     await supabase.auth.admin.deleteUser(user.id, false);
