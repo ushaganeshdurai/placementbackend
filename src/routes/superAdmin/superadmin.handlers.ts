@@ -5,7 +5,7 @@ import db from "@/db";
 import bcrypt from 'bcryptjs'
 // import { superAdmin } from "@/db/schemas/superAdminSchema";
 import { superAdmin } from "drizzle/schema";
-import type { CreateStaffsRoute, CreateStudentsRoute, GetOneRoute, LoginSuperAdmin, RemoveStaffRoute, RemoveStudentRoute } from "./superadmin.routes";
+import type { CreateStaffsRoute, GetOneRoute, LoginSuperAdmin, RemoveStaffRoute } from "./superadmin.routes";
 import { staff,students } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
@@ -46,14 +46,6 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
     path: "/",
     maxAge: 3600, // 1 hour
   });
-
-  // return c.json(
-  //   {
-  //     message: "Login successful",
-  //     redirect: "/superadmin",
-  //   },
-  //   302
-  // );
   return c.redirect("/superadmin",302)
 };
 
@@ -106,17 +98,19 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 
 
 //Add Staff
+
 export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
   try {
-    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session")
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found" }, 401);
     }
+
     let userRole = null;
-    
+    let userId = null;
+
     try {
       const SECRET_KEY = process.env.SECRET_KEY!;
-      let userId = null;
       const decoded = await verify(jwtToken!, SECRET_KEY);
       console.log("Decoded JWT:", decoded);
       if (!decoded) throw new Error("Invalid session");
@@ -126,22 +120,27 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
       console.error("Session Verification Error:", error);
       return c.json({ error: "Invalid session" }, 401);
     }
+
     const newStaffs = c.req.valid('json');
     if (!Array.isArray(newStaffs)) {
       return c.json([], HttpStatusCodes.OK);
     }
+
     if (userRole === "super_admin") {
-      const validStaffs = newStaffs.map(staff => ({
-        ...staff,
-        appliedStudentsEmailIds: Array.isArray(staff.appliedStudentsEmailIds) ? staff.appliedStudentsEmailIds : []
-      }));
+      // Hash all passwords before inserting
+      const validStaffs = await Promise.all(newStaffs.map(async (staff) => ({
+        email: staff.email,
+        password: await bcrypt.hash(staff.password, 10), // Hash password with salt rounds = 10
+      })));
+
       const insertedStaffs = await db.insert(staff).values(validStaffs).returning();
       return c.json(insertedStaffs, HttpStatusCodes.OK);
-
     }
 
+    return c.json({ error: "Unauthorized" }, 403);
+
   } catch (error) {
-    console.error('Staffs creation error:', error);
+    console.error('Staff creation error:', error);
     return c.json([], HttpStatusCodes.OK);
   }
 };
@@ -179,53 +178,3 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
   }
 };
 
-
-
-
-//Add Student
-export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) => {
-  try {
-    const newStudents = c.req.valid('json');
-    if (!Array.isArray(newStudents)) {
-      return c.json([], HttpStatusCodes.OK);
-    }
-    const insertedStudents = await db.insert(students).values(newStudents).returning();
-    return c.json(insertedStudents, HttpStatusCodes.OK);
-
-  } catch (error) {
-    console.error('Staff creation error:', error);
-    return c.json([], HttpStatusCodes.OK);
-  }
-};
-
-
-//Remove Student
-
-export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
-  try {
-    const { id } = c.req.valid("param");
-
-    const result = await db.delete(students)
-      .where(eq(students.studentId, id));
-
-    if (result.length === 0) {
-      return c.json({
-        errors: [{
-          code: 'NOT_FOUND',
-          message: 'Student not found'
-        }]
-      }, HttpStatusCodes.NOT_FOUND);
-    }
-
-    return c.body(null, HttpStatusCodes.NO_CONTENT);
-
-  } catch (error) {
-    console.error('Student deletion error:', error);
-    return c.json({
-      errors: [{
-        path: ['param', 'student_id', 'id'],
-        message: 'Invalid student ID format'
-      }]
-    }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
-  }
-};

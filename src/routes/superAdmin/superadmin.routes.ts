@@ -5,7 +5,6 @@ import { createErrorSchema, IdUUIDParamsSchema } from "stoker/openapi/schemas";
 import { notFoundSchema } from "@/lib/constants";
 import { loginSuperAdminSchema, selectSuperAdminSchema } from "@/db/schemas/superAdminSchema";
 import { insertStaffSchema, selectStaffSchema } from "@/db/schemas/staffSchema";
-import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 
 

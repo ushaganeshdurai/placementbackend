@@ -1,20 +1,20 @@
 import { pgTable, uuid, text, unique, integer, date } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod"; 
+import { z } from "zod";
 import { users } from "./users";
 
 
 export const staff = pgTable('staff', {
   staffId: uuid('staff_id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  userId:text('user_id').references(()=>users.id),
-  studentId:uuid('student_id').defaultRandom(),
-  studentEmailId:text('student_email_id'),
+  userId: text('user_id').references(() => users.id),
+  studentId: uuid('student_id').defaultRandom(),
+  studentEmailId: text('student_email_id'),
   email: text('email_id').notNull(),
-  jobDescription:text('job_description'),
-  driveDate:date('drive_date'),
-  appliedStudentsEmailIds:text('applied_students_emailIds'),
-  password: text('password'),
+  jobDescription: text('job_description'),
+  driveDate: date('drive_date'),
+  appliedStudentsEmailIds: text('applied_students_emailIds'),
+  password: text('password').notNull(),
   department: text('department'),
 }, (staff) => ({
   uniqueEmail: unique("staff_email_unique").on(staff.email),
@@ -29,6 +29,13 @@ export const insertStaffSchema = createInsertSchema(staff).required({
   password: true,
 }).omit({
   staffId: true,
+  userId:true,
+  driveDate: true,
+  studentId: true,
+  department: true,
+  jobDescription: true,
+  studentEmailId: true, appliedStudentsEmailIds: true,
+  name: true
 });
 
 

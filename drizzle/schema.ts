@@ -20,24 +20,20 @@ export const profiles = pgTable("profiles", {
 export const staff = pgTable("staff", {
 	staffId: uuid("staff_id").defaultRandom().primaryKey().notNull(),
 	name: text(),
-	studentId: uuid("student_id").defaultRandom(),
 	email: text().notNull(),
 	password: text(),
 	department: text(),
-	studentEmailId: text("student_email_id"),
 	jobDescription: text("job_description"),
 	driveDate: date("drive_date"),
 	appliedStudentsEmailIds: text("applied_students_emailIds").array(),
 	userId: uuid(),
 }, (table) => [
-	unique("staff_student_id_key").on(table.studentId),
-	unique("staff_email_unique").on(table.email),
-	unique("staff_student_email_id_key").on(table.studentEmailId),
+	unique("staff_email_unique").on(table.email)
 ]);
 
 export const students = pgTable("students", {
-	staffId: uuid("staff_id"),
-	studentId: uuid("student_id").primaryKey().notNull(),
+	studentId: uuid("student_id").defaultRandom().primaryKey().notNull(),
+	staffId: uuid("staff_id").notNull(),
 	password: text().notNull(),
 	email: text().notNull(),
 	skillSet: text("skill_set"),
@@ -58,24 +54,15 @@ export const students = pgTable("students", {
 	userId: uuid(),
 }, (table) => [
 	foreignKey({
-			columns: [table.email],
-			foreignColumns: [staff.studentEmailId],
-			name: "students_email_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.staffId],
-			foreignColumns: [staff.staffId],
-			name: "students_staff_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.studentId],
-			foreignColumns: [staff.studentId],
-			name: "students_student_id_fkey"
-		}),
+		columns: [table.staffId],
+		foreignColumns: [staff.staffId],
+		name: "students_staff_id_fkey"
+	}),
 	unique("students_email_unique").on(table.email),
 	unique("students_reg_no_key").on(table.regNo),
 	unique("students_roll_no_key").on(table.rollNo),
 ]);
+
 
 export const superAdmin = pgTable("super_admin", {
 	id: uuid().defaultRandom().notNull(),
