@@ -10,8 +10,6 @@ import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 
 
 
-
-
 //log in the admin
 export const loginAdmin = createRoute({
   path: "/superadmin/login",
@@ -118,58 +116,8 @@ export const removestaffroute = createRoute({
 
 
 //students
-
-// To create many students at once
-export const createstudentsroute = createRoute({
-  path: "/superadmin/createstudents",
-  method: "post",
-  request: {
-    body: jsonContentRequired(
-      z.array(insertStudentSchema),
-      "Add multiple students",
-    ),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.array(selectStudentSchema),
-      "The created many students",
-    ),
-    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      createErrorSchema(insertStudentSchema),
-      "The validation error(s)",
-    ),
-  },
-});
-
-
-// To remove one student
-export const removestudentroute = createRoute({
-  path: "/superadmin/student/{id}",
-  method: "delete",
-  request: {
-    params: IdUUIDParamsSchema,
-  },
-
-  responses: {
-    [HttpStatusCodes.NO_CONTENT]: {
-      description: "Student deleted",
-    },
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      notFoundSchema,
-      "Student not found",
-    ),
-    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      createErrorSchema(IdUUIDParamsSchema),
-      "Invalid id error",
-    ),
-  },
-});
-
-
-
 export type LoginSuperAdmin = typeof loginAdmin
 export type GetOneRoute = typeof getOne;
 export type CreateStaffsRoute = typeof createstaffsroute;
 export type RemoveStaffRoute = typeof removestaffroute;
-export type CreateStudentsRoute = typeof createstudentsroute;
-export type RemoveStudentRoute = typeof removestudentroute;
+

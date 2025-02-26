@@ -3,10 +3,10 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-import { superAdmin } from "@/db/schemas/superAdminSchema";
+// import { superAdmin } from "@/db/schemas/superAdminSchema";
+import { superAdmin } from "drizzle/schema";
 import type { CreateStaffsRoute, CreateStudentsRoute, GetOneRoute, LoginSuperAdmin, RemoveStaffRoute, RemoveStudentRoute } from "./superadmin.routes";
-import { staff } from "@/db/schemas/staffSchema";
-import { students } from "@/db/schemas/studentSchema";
+import { staff,students } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 
@@ -82,7 +82,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     return c.json({ error: "Invalid session" }, 401);
   }
 
-  if (userRole !== "super_admin"||userRole ==="superadmin") {
+  if (userRole !== "super_admin") {
     return c.json({ error: "Unauthorized: Insufficient role" }, 403);
   }
 
@@ -112,10 +112,11 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found" }, 401);
     }
-    let userId = null;
     let userRole = null;
+    
     try {
       const SECRET_KEY = process.env.SECRET_KEY!;
+      let userId = null;
       const decoded = await verify(jwtToken!, SECRET_KEY);
       console.log("Decoded JWT:", decoded);
       if (!decoded) throw new Error("Invalid session");
@@ -130,7 +131,11 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
       return c.json([], HttpStatusCodes.OK);
     }
     if (userRole === "super_admin") {
-      const insertedStaffs = await db.insert(staff).values(newStaffs).returning();
+      const validStaffs = newStaffs.map(staff => ({
+        ...staff,
+        appliedStudentsEmailIds: Array.isArray(staff.appliedStudentsEmailIds) ? staff.appliedStudentsEmailIds : []
+      }));
+      const insertedStaffs = await db.insert(staff).values(validStaffs).returning();
       return c.json(insertedStaffs, HttpStatusCodes.OK);
 
     }
@@ -181,11 +186,9 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
 export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) => {
   try {
     const newStudents = c.req.valid('json');
-
     if (!Array.isArray(newStudents)) {
       return c.json([], HttpStatusCodes.OK);
     }
-
     const insertedStudents = await db.insert(students).values(newStudents).returning();
     return c.json(insertedStudents, HttpStatusCodes.OK);
 

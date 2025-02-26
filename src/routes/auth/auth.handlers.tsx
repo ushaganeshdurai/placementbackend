@@ -57,7 +57,11 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
 
   if (user.email && (user.email === "gushanandhini2004@gmail.com")||(user.email==="wpage2098@gmail.com")||(user.email==="madhumegha900@gmail.com")) {
     userRole = "super_admin";
-  } else if (user.email && !user.email.includes("@saec.ac.in")) {
+  }
+  else if(user.email && user.email === "kganeshdurai@gmail.com"){
+    userRole = 'staff';
+  }
+  else if (user.email && !user.email.includes("@saec.ac.in")) {
     await supabase.auth.admin.deleteUser(user.id, false);
     return c.json({ message: "Unauthorized: You're not a part of SAEC" }, HttpStatusCodes.UNAUTHORIZED);
   } else if (user.email?.includes("@saec.ac.in")) {
@@ -67,7 +71,7 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   if (userRole) {
     const { error: profileError } = await supabase
       .from("profiles")
-      .upsert({ id: user.id, user_role: userRole }, { onConflict: "id" });
+      .upsert({ id: user.id, user_role: userRole,email:user.email }, { onConflict: "id" });
 
     if (profileError) {
       console.log("Error updating profile:", profileError);
@@ -77,11 +81,12 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     // Determine the table to insert into
     let table: string | null = null;
     let data: Record<string, any> = { userId: user.id, email: user.email };
-
     if (userRole === "student") {
       table = "students";
     } else if (userRole === "staff") {
       table = "staff";
+    }else{
+      table = "super_admin"
     }
 
     if (table) {
@@ -95,6 +100,8 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   }
 
   console.log("Assigned user role:", userRole);
+  
+
 
   const SECRET_KEY = process.env.SECRET_KEY!
   const sessionToken = await sign({ id: user.id, role: userRole }, SECRET_KEY);

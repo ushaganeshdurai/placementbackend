@@ -7,8 +7,6 @@ const router = createRouter()
   .openapi(routes.getOne, handlers.getOne)
   .openapi(routes.loginAdmin,handlers.loginAdmin)
   .openapi(routes.createstaffsroute,handlers.createStaffs)
-  .openapi(routes.createstudentsroute,handlers.createStudents)
   .openapi(routes.removestaffroute,handlers.removeStaff)
-  .openapi(routes.removestudentroute,handlers.removeStudent)
 
 export default router;
