@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs'
 // import { superAdmin } from "@/db/schemas/superAdminSchema";
 import { superAdmin } from "drizzle/schema";
 import type { CreateStaffsRoute, GetOneRoute, LoginSuperAdmin, RemoveStaffRoute } from "./superadmin.routes";
-import { staff,students } from "drizzle/schema";
+import { staff, students } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 
@@ -28,7 +28,7 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
 
   const admin = queryAdmin[0];
 
-  const isPasswordValid = await bcrypt.compare(password, admin.password);
+  const isPasswordValid = await bcrypt.compare(password, admin.password!);
 
   if (!isPasswordValid) {
     return c.json({ error: "Invalid credentials" }, 401);
@@ -46,7 +46,7 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
     path: "/",
     maxAge: 3600, // 1 hour
   });
-  return c.redirect("/superadmin",302)
+  return c.redirect("/superadmin", 302)
 };
 
 
@@ -66,8 +66,9 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     if (!decoded) throw new Error("Invalid session");
     userId = decoded.id;
     userRole = decoded.role;
+    console.log(jwtToken)
   } catch (error) {
-    if ( error=== "TokenExpiredError") {
+    if (error === "TokenExpiredError") {
       return c.json({ error: "Session expired" }, 401);
     }
     console.error("Session Verification Error:", error);
@@ -81,7 +82,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   try {
     const staffList = await db.select().from(staff).execute();
     const studentList = await db.select().from(students).execute();
-    
+
     return c.json({
       success: "Authorization successful",
       userId,

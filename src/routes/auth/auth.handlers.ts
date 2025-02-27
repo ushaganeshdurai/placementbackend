@@ -55,10 +55,10 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   const firstSeven = user?.email?.substring(0, 7);
   const checkingIfStudent = /^[0-9]{7}$/.test(firstSeven || "");
 
-  if (user.email && (user.email === "gushanandhini2004@gmail.com")||(user.email==="wpage2098@gmail.com")||(user.email==="madhumegha900@gmail.com")) {
+  if (user.email && (user.email === "gushanandhini2004@gmail.com") || (user.email === "wpage2098@gmail.com") || (user.email === "madhumegha900@gmail.com")) {
     userRole = "super_admin";
   }
-  else if(user.email && user.email === "kganeshdurai@gmail.com"){
+  else if (user.email && user.email === "kganeshdurai@gmail.com") {
     userRole = 'staff';
   }
   else if (user.email && !user.email.includes("@saec.ac.in")) {
@@ -71,7 +71,7 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   if (userRole) {
     const { error: profileError } = await supabase
       .from("profiles")
-      .upsert({ id: user.id, user_role: userRole,email:user.email }, { onConflict: "id" });
+      .upsert({ id: user.id, user_role: userRole, email: user.email }, { onConflict: "id" });
 
     if (profileError) {
       console.log("Error updating profile:", profileError);
@@ -80,18 +80,18 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
 
     // Determine the table to insert into
     let table: string | null = null;
-    let data: Record<string, any> = { userId: user.id, email: user.email };
+    let data: Record<string, any> = { user_id: user.id, name: user.user_metadata.full_name, email: user.email };
     if (userRole === "student") {
       table = "students";
     } else if (userRole === "staff") {
       table = "staff";
-    }else{
+    } else {
       table = "super_admin"
     }
 
     if (table) {
       const { error: roleError } = await supabase.from(table).upsert(data, { onConflict: "email" });
-
+      console.log(data)
       if (roleError) {
         console.log(`Error adding to ${table} table:`, roleError);
         return c.json({ message: `Error adding ${userRole}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
@@ -100,7 +100,7 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   }
 
   console.log("Assigned user role:", userRole);
-  
+
 
 
   const SECRET_KEY = process.env.SECRET_KEY!
@@ -115,6 +115,8 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     domain: "localhost"
   });
   setCookie(c, "admin_session", "", { path: "/", maxAge: 0 })
+  setCookie(c, "staff_session", "", { path: "/", maxAge: 0 })
+  setCookie(c, "student_session", "", { path: "/", maxAge: 0 })
   if (userRole === 'super_admin') { return c.redirect("/superadmin"); }
   else if (userRole === 'staff') { return c.redirect("/staff") }
   else { return c.redirect("/student") }

@@ -1,11 +1,13 @@
 import { relations } from "drizzle-orm/relations";
 import { usersInAuth, profiles, staff, students, superAdmin } from "./schema";
 
-export const profilesRelations = relations(profiles, ({one}) => ({
+export const profilesRelations = relations(profiles, ({one, many}) => ({
 	usersInAuth: one(usersInAuth, {
 		fields: [profiles.id],
 		references: [usersInAuth.id]
 	}),
+	staff: many(staff),
+	students: many(students),
 }));
 
 export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
@@ -13,33 +15,22 @@ export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
 	superAdmins: many(superAdmin),
 }));
 
-export const studentsRelations = relations(students, ({one}) => ({
-	staff_email: one(staff, {
-		fields: [students.email],
-		references: [staff.studentEmailId],
-		relationName: "students_email_staff_studentEmailId"
+export const staffRelations = relations(staff, ({one, many}) => ({
+	profile: one(profiles, {
+		fields: [staff.userId],
+		references: [profiles.id]
 	}),
-	staff_staffId: one(staff, {
-		fields: [students.staffId],
-		references: [staff.staffId],
-		relationName: "students_staffId_staff_staffId"
-	}),
-	staff_studentId: one(staff, {
-		fields: [students.studentId],
-		references: [staff.studentId],
-		relationName: "students_studentId_staff_studentId"
-	}),
+	students: many(students),
 }));
 
-export const staffRelations = relations(staff, ({many}) => ({
-	students_email: many(students, {
-		relationName: "students_email_staff_studentEmailId"
+export const studentsRelations = relations(students, ({one}) => ({
+	staff: one(staff, {
+		fields: [students.staffId],
+		references: [staff.staffId]
 	}),
-	students_staffId: many(students, {
-		relationName: "students_staffId_staff_staffId"
-	}),
-	students_studentId: many(students, {
-		relationName: "students_studentId_staff_studentId"
+	profile: one(profiles, {
+		fields: [students.userId],
+		references: [profiles.id]
 	}),
 }));
 

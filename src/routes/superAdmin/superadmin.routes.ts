@@ -78,7 +78,7 @@ export const createstaffsroute = createRoute({
   responses: {
     [HttpStatusCodes.OK]: jsonContentRequired(
       z.array(selectStaffSchema),  // The response will contain an array of created staff objects
-      "The created many staffs",
+      "Created many staffs",
     ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createErrorSchema(insertStaffSchema),

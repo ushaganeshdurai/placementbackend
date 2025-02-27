@@ -11,7 +11,7 @@ export const loginStudent = createRoute({
     path: "/student/login",
     method: "post",
     request: {
-        body: jsonContentRequired(loginStudentSchema, "The super admin login credentials"),
+        body: jsonContentRequired(loginStudentSchema, "The student's login credentials"),
     },
     responses: {
         [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
@@ -19,7 +19,7 @@ export const loginStudent = createRoute({
             "Unauthorized access"
         ),
         [HttpStatusCodes.MOVED_TEMPORARILY]: {
-            description: "Redirect to the admin page",
+            description: "Redirect to the student's page",
             headers: {
                 Location: {
                     schema: {

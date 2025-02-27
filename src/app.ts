@@ -6,7 +6,7 @@ import staff from "@/routes/staffs/staff.index";
 import student from "@/routes/students/student.index";
 
 import { authRouter } from "./routes/auth/auth.index";
-import {cors} from 'hono/cors'
+import { cors } from 'hono/cors'
 
 const app = createApp();
 configureOpenAPI(app);
@@ -22,7 +22,7 @@ const routes = [
 
 
 //Yet to add staff, students cors
-
+app.use('/*', cors({ origin: 'http://localhost:5173' }));
 
 routes.forEach((route) => {
   app.route("/", route);

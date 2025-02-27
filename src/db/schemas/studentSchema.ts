@@ -35,14 +35,15 @@ export const selectStudentSchema = createSelectSchema(students);
 // Schema for inserting new student records
 export const insertStudentSchema = createInsertSchema(students, {
   email: (schema) => schema.email.regex(/^[0-9]+@saec\.ac\.in$/),
-  phoneNumber: (schema) => schema.phoneNumber.min(1000000000).max(9999999999), // 10-digit phone number
 }).required({
   email: true,
   department: true,
   studentId: true,
   password: true,
-  name: true,
-  regNo: true, rollNo: true,
+  name: true, //how to get displayName
+  // const displayName = data.user.user_metadata.display_name
+  regNo: true, 
+  rollNo: true, //how to extract rollNo from email
   year: true
 }).omit({
   studentId: true,

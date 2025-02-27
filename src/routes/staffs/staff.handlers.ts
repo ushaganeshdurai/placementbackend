@@ -78,18 +78,20 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   }
 
   try {
-    const staff_details = await db.select().from(staff).execute();
-    //TODO: get only one staff details not the entire array
+    const staff_details = await db.select().from(staff).where(eq(staff.userId, String(userId))).execute();
 
-    //TODO: check if for all : encrypt the password 
-    // const studentList = await db.select().from(students).execute();
+    const studentList = await db
+    .select()
+    .from(students)
+    .where(eq(students.staffId, String(userId))) 
+    .execute();
 
     return c.json({
       success: "Authorization successful",
       userId,
       role: userRole,
-      staff: staff_details,
-      // students: studentList
+      staff: staff_details[0],
+      students: studentList
     }, 200);
 
   } catch (error) {

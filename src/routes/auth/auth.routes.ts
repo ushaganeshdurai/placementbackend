@@ -19,7 +19,7 @@ export const oauth = createRoute({
   method: "get",
   responses: {
     [HttpStatusCodes.MOVED_TEMPORARILY]: {
-        description: "Redirect to the admin page",
+        description: "Redirect to the dashboard page",
         headers: {
           Location: {
             schema: {
