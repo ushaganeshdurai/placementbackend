@@ -45,7 +45,8 @@ export const oauthSuccess = createRoute({
     },
     responses: {
         [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema("ok"), "adasdf"),
-        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(createMessageObjectSchema("Unauthorized"), "Custom message for unauthorization")
+        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(createMessageObjectSchema("Unauthorized"), "Custom message for unauthorization"),
+        [HttpStatusCodes.INTERNAL_SERVER_ERROR]:jsonContent(createMessageObjectSchema("Internal server error"),"Internalservererror")
     },
     middleware: [supabaseMiddleware] as const
 })

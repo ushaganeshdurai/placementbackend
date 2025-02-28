@@ -41,7 +41,6 @@ export const insertStudentSchema = createInsertSchema(students, {
   studentId: true,
   password: true,
   name: true, //how to get displayName
-  // const displayName = data.user.user_metadata.display_name
   regNo: true, 
   rollNo: true, //how to extract rollNo from email
   year: true
