@@ -58,7 +58,7 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   const firstSeven = user?.email?.substring(0, 7);
   const checkingIfStudent = /^[0-9]{7}$/.test(firstSeven || "");
 
-  if (["gushanandhini2004@gmail.com", "madhumegha900@gmail.com"].includes(user.email!)) {
+  if (["gushanandhini2004@gmail.com","mhajith2003@gmail.com", "madhumegha900@gmail.com"].includes(user.email!)) {
     userRole = "super_admin";
   } else if (user.email === "kganeshdurai@gmail.com"||"wpage2098@gmail.com") {
     userRole = "staff";
