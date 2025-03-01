@@ -81,14 +81,11 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 
   try {
     const staffList = await db.select().from(staff).execute();
-    const studentList = await db.select().from(students).execute();
-
     return c.json({
       success: "Authorization successful",
       userId,
       role: userRole,
       staff: staffList,
-      students: studentList
     }, 200);
 
   } catch (error) {

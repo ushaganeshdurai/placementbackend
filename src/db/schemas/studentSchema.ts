@@ -6,10 +6,10 @@ import { staff } from "./staffSchema";
 export const applied_or_not = pgEnum("applied_or_not", ['yes', 'no', 'partial'])
 
 export const students = pgTable('students', {
-  staffId: uuid('staff_id').references(() => staff.staffId),
-  studentId: uuid('student_id').primaryKey().references(() => staff.studentId),
-  password: text('password').notNull(),
-  userId:text('user_id'),
+  staffId: uuid('staff_id').references(() => staff.staffId).notNull(),
+  studentId: uuid('student_id').defaultRandom().primaryKey().references(() => staff.studentId),
+  password: text('password'),
+  userId: text('user_id'),
   email: text('email_id').notNull().references(() => staff.studentEmailId),
   skillSet: text('skill_set'),
   phoneNumber: integer('phone_number'),
@@ -21,8 +21,9 @@ export const students = pgTable('students', {
   year: text('year'),
   linkedinUrl: text('linkedin_url'),
   githubUrl: text('github_url'),
-  regNo: integer('reg_no').notNull().unique(),
-  rollNo: integer('roll_no').notNull().unique(),
+ appliedOrNot: applied_or_not("applied_or_not"),
+  regNo: integer('reg_no').unique(),
+  rollNo: integer('roll_no').unique(),
   department: text('department'),
   noOfArrears: integer('no_of_arrears'),
 }, (students) => ({
@@ -33,20 +34,54 @@ export const students = pgTable('students', {
 export const selectStudentSchema = createSelectSchema(students);
 
 // Schema for inserting new student records
-export const insertStudentSchema = createInsertSchema(students, {
-  email: (schema) => schema.email.regex(/^[0-9]+@saec\.ac\.in$/),
-}).required({
+export const insertStudentSchema = createInsertSchema(students).required({
   email: true,
-  department: true,
-  studentId: true,
   password: true,
-  name: true, //how to get displayName
-  regNo: true, 
-  rollNo: true, //how to extract rollNo from email
-  year: true
 }).omit({
   studentId: true,
+  userId: true,
+  department:true,
+  staffId:true,
+  skillSet: true,
+  languagesKnown: true,
+  phoneNumber: true,
+  appliedOrNot:true,
+  noOfArrears: true, 
+  githubUrl: true, 
+  linkedinUrl: true, 
+  twelfthMark: true, 
+  tenthMark: true, 
+  cgpa: true,
+  name: true,
+  regNo: true,
+  rollNo: true, //how to extract rollNo from email
+  year: true
 });
+
+
+
+
+
+export const insertStaffSchema = createInsertSchema(staff).required({
+  email: true,
+  password: true,
+}).omit({
+  staffId: true,
+  userId: true,
+  driveDate: true,
+  studentId: true,
+  department: true,
+  jobDescription: true,
+  studentEmailId: true,
+  appliedStudentsEmailIds: true,
+  name: true
+});
+
+
+
+
+
+
 
 
 export const loginStudentSchema = z.object({

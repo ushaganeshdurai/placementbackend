@@ -32,7 +32,7 @@ export const loginAdmin = createRoute({
       },
     },
   },
-  // middleware: [supabaseMiddleware] as const
+  middleware: [supabaseMiddleware] as const
 });
 
 
