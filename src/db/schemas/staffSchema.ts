@@ -14,7 +14,7 @@ export const staff = pgTable('staff', {
   jobDescription: text('job_description'),
   driveDate: date('drive_date'),
   appliedStudentsEmailIds: text('applied_students_emailIds'),
-  password: text('password').notNull(),
+  password: text('password'),
   department: text('department'),
 }, (staff) => ({
   uniqueEmail: unique("staff_email_unique").on(staff.email),
@@ -34,7 +34,8 @@ export const insertStaffSchema = createInsertSchema(staff).required({
   studentId: true,
   department: true,
   jobDescription: true,
-  studentEmailId: true, appliedStudentsEmailIds: true,
+  studentEmailId: true,
+   appliedStudentsEmailIds: true,
   name: true
 });
 

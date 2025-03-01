@@ -42,9 +42,9 @@ export const staff = pgTable("staff", {
 ]);
 
 export const students = pgTable("students", {
-	staffId: uuid("staff_id"),
-	studentId: uuid("student_id").primaryKey().notNull(),
-	password: text().notNull(),
+	staffId: uuid("staff_id").notNull(),
+	studentId: uuid("student_id").defaultRandom().primaryKey().notNull(),
+	password: text(),
 	email: text().notNull(),
 	skillSet: text("skill_set"),
 	phoneNumber: integer("phone_number"),
@@ -56,8 +56,8 @@ export const students = pgTable("students", {
 	year: text(),
 	linkedinUrl: text("linkedin_url"),
 	githubUrl: text("github_url"),
-	regNo: integer("reg_no").notNull(),
-	rollNo: integer("roll_no").notNull(),
+	regNo: integer("reg_no").unique(),
+	rollNo: integer("roll_no").unique(),
 	department: text(),
 	noOfArrears: integer("no_of_arrears"),
 	appliedOrNot: appliedOrNot("applied_or_not"),
@@ -82,7 +82,7 @@ export const students = pgTable("students", {
 export const superAdmin = pgTable("super_admin", {
 	id: uuid().defaultRandom().notNull(),
 	email: text().notNull(),
-	userId: uuid().notNull(),
+	userId: uuid("user_id").notNull(),
 	password: text(),
 }, (table) => [
 	foreignKey({

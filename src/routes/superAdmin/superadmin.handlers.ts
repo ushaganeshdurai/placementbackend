@@ -81,14 +81,11 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 
   try {
     const staffList = await db.select().from(staff).execute();
-    const studentList = await db.select().from(students).execute();
-
     return c.json({
       success: "Authorization successful",
       userId,
       role: userRole,
       staff: staffList,
-      students: studentList
     }, 200);
 
   } catch (error) {
@@ -100,51 +97,6 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 
 //Add Staff
 
-// export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
-//   try {
-//     const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
-//     if (!jwtToken) {
-//       return c.json({ error: "Unauthorized: No session found" }, 401);
-//     }
-
-//     let userRole = null;
-//     let userId = null;
-
-//     try {
-//       const SECRET_KEY = process.env.SECRET_KEY!;
-//       const decoded = await verify(jwtToken!, SECRET_KEY);
-//       console.log("Decoded JWT:", decoded);
-//       if (!decoded) throw new Error("Invalid session");
-//       userId = decoded.id;
-//       userRole = decoded.role;
-//     } catch (error) {
-//       console.error("Session Verification Error:", error);
-//       return c.json({ error: "Invalid session" }, 401);
-//     }
-
-//     const newStaffs = c.req.valid('json');
-//     if (!Array.isArray(newStaffs)) {
-//       return c.json([], HttpStatusCodes.OK);
-//     }
-
-//     if (userRole === "super_admin") {
-//       // Hash all passwords before inserting
-//       const validStaffs = await Promise.all(newStaffs.map(async (staff) => ({
-//         email: staff.email,
-//         password: await bcrypt.hash(staff.password, 10), // Hash password with salt rounds = 10
-//       })));
-
-//       const insertedStaffs = await db.insert(staff).values(validStaffs).returning();
-//       return c.json(insertedStaffs, HttpStatusCodes.OK);
-//     }
-
-//     return c.json({ error: "Unauthorized" }, 403);
-
-//   } catch (error) {
-//     console.error('Staff creation error:', error);
-//     return c.json([], HttpStatusCodes.OK);
-//   }
-// };
 
 
 export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {

@@ -9,7 +9,7 @@ import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 
 
-// login the admin
+// login the staff
 export const loginStaff: AppRouteHandler<LoginStaffRoute> = async (c) => {
   const { email, password } = c.req.valid("json");
 
@@ -34,7 +34,7 @@ export const loginStaff: AppRouteHandler<LoginStaffRoute> = async (c) => {
 
 
   const SECRET_KEY = process.env.SECRET_KEY!;
-  const sessionToken = await sign({ id: queried_staff.staffId, role: "staff" }, SECRET_KEY);
+  const sessionToken = await sign({ id: queried_staff.staffId, staff_id: queried_staff.staffId, role: "staff" }, SECRET_KEY);
   console.log("Context:", c);
   // Set cookie with proper options
   setCookie(c, "staff_session", sessionToken, {
@@ -56,15 +56,16 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     return c.json({ error: "Unauthorized: No session found" }, 401);
   }
 
-  let userId = null;
+  let staffId = null;
   let userRole = null;
 
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken!, SECRET_KEY);
     if (!decoded) throw new Error("Invalid session");
-    userId = decoded.id;
+    staffId = decoded.id as string;
     userRole = decoded.role;
+
   } catch (error) {
     if (error === "TokenExpiredError") {
       return c.json({ error: "Session expired" }, 401);
@@ -78,19 +79,20 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   }
 
   try {
-    const staff_details = await db.select().from(staff).where(eq(staff.userId, String(userId))).execute();
+    const staff_details = await db.select().from(staff).where(eq(staff.staffId, String(staffId))).execute();
 
     const studentList = await db
-    .select()
-    .from(students)
-    .where(eq(students.staffId, String(userId))) 
-    .execute();
+      .select()
+      .from(students)
+      .where(eq(students.staffId, String(staffId)))
+      .execute();
 
     return c.json({
       success: "Authorization successful",
-      userId,
+      staffId,
       role: userRole,
       staff: staff_details[0],
+
       students: studentList
     }, 200);
 
@@ -105,15 +107,54 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 //Add Student
 export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) => {
   try {
-    const newStudents = c.req.valid('json');
+    const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let userRole: string | null = null;
+    let staffId: string | null = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken!, SECRET_KEY);
+      console.log("Decoded JWT:", decoded);
+      if (!decoded) throw new Error("Invalid session");
+
+      userRole = decoded.role as string;
+      staffId = decoded.id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    if (!staffId) {
+      return c.json({ error: "Staff ID missing from token" }, 400);
+    }
+
+    const newStudents = c.req.valid("json");
     if (!Array.isArray(newStudents)) {
       return c.json([], HttpStatusCodes.OK);
     }
-    const insertedStudents = await db.insert(students).values(newStudents).returning();
-    return c.json(insertedStudents, HttpStatusCodes.OK);
 
+    if (userRole === "staff") {
+      const validStudents = await Promise.all(
+        newStudents.map(async (student) => ({
+          email: student.email,
+          staffId: staffId,
+          password: await bcrypt.hash(student.password!, 10),
+        }))
+      );
+
+      console.log("Staff ID being used:", staffId);
+
+      const insertedStudents = await db.insert(students).values(validStudents).returning();
+      return c.json(insertedStudents, HttpStatusCodes.OK);
+    }
+
+    return c.json({ error: "Unauthorized" }, 403);
   } catch (error) {
-    console.error('Staff creation error:', error);
+    console.error("Students creation error:", error);
     return c.json([], HttpStatusCodes.OK);
   }
 };

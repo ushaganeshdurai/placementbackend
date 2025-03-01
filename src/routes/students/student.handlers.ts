@@ -4,12 +4,12 @@ import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
 import type { GetOneRoute, LoginStudentRoute } from "./student.routes";
-import { staff,students } from "drizzle/schema";
+import { staff, students } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 
 
-// login the admin
+// login the student
 export const loginStudent: AppRouteHandler<LoginStudentRoute> = async (c) => {
   const { email, password } = c.req.valid("json");
 
@@ -45,7 +45,7 @@ export const loginStudent: AppRouteHandler<LoginStudentRoute> = async (c) => {
     maxAge: 3600, // 1 hour
   });
 
-  return c.redirect("/staff",302)
+  return c.redirect("/student", 302)
 };
 
 
@@ -56,17 +56,17 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     return c.json({ error: "Unauthorized: No session found" }, 401);
   }
 
-  let userId = null;
+  let studentId = null;
   let userRole = null;
 
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken!, SECRET_KEY);
     if (!decoded) throw new Error("Invalid session");
-    userId = decoded.id;
+    studentId = decoded.id;
     userRole = decoded.role;
   } catch (error) {
-    if ( error=== "TokenExpiredError") {
+    if (error === "TokenExpiredError") {
       return c.json({ error: "Session expired" }, 401);
     }
     console.error("Session Verification Error:", error);
@@ -78,16 +78,19 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   }
 
   try {
-    // const staff_details = await db.select().from(staff).execute();
-    const student_details = await db.select().from(students).execute();
+    const student_details = await db
+      .select()
+      .from(students)
+      .where(eq(students.studentId, String(studentId))) 
+      .limit(1)
+      .execute();
+
     //get only one student's details
-    
     return c.json({
       success: "Authorization successful",
-      userId,
+      studentId,
       role: userRole,
-      staff: student_details,
-      // students: studentList
+      student: student_details[0],
     }, 200);
 
   } catch (error) {
