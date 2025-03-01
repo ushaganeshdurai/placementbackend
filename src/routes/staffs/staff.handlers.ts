@@ -34,7 +34,7 @@ export const loginStaff: AppRouteHandler<LoginStaffRoute> = async (c) => {
 
 
   const SECRET_KEY = process.env.SECRET_KEY!;
-  const sessionToken = await sign({ id: queried_staff.staffId, staff_id: queried_staff.staffId, role: "staff" }, SECRET_KEY);
+  const sessionToken = await sign({ staff_id: queried_staff.staffId, role: "staff" }, SECRET_KEY);
   console.log("Context:", c);
   // Set cookie with proper options
   setCookie(c, "staff_session", sessionToken, {
@@ -63,9 +63,8 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken!, SECRET_KEY);
     if (!decoded) throw new Error("Invalid session");
-    staffId = decoded.id as string;
+    staffId = decoded.staff_id as string;
     userRole = decoded.role;
-
   } catch (error) {
     if (error === "TokenExpiredError") {
       return c.json({ error: "Session expired" }, 401);
@@ -86,13 +85,12 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       .from(students)
       .where(eq(students.staffId, String(staffId)))
       .execute();
-
+    // why empty array is returned??? //manual login working fine oauth is something wrong
     return c.json({
       success: "Authorization successful",
       staffId,
       role: userRole,
       staff: staff_details[0],
-
       students: studentList
     }, 200);
 

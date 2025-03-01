@@ -125,6 +125,7 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     SECRET_KEY
   );
 
+
   // Step 7: Set Cookies for Session
   setCookie(c, "oauth_session", sessionToken, {
     httpOnly: true,
@@ -134,6 +135,11 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     maxAge: 3600,
     domain: "localhost",
   });
+
+  console.log("Generated session token payload:", {
+    id: user.id, role: userRole, staff_id: userRole === 'staff' ? generatedId : null,
+    studentId: userRole === 'student' ? generatedId : null
+  })
 
   // Clear role-specific session cookies
   setCookie(c, "admin_session", "", { path: "/", maxAge: 0 });
