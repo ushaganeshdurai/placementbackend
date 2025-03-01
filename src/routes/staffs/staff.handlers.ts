@@ -142,7 +142,7 @@ export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) =>
         newStudents.map(async (student) => ({
           email: student.email,
           staffId: staffId,
-          password: await bcrypt.hash(student.password, 10),
+          password: await bcrypt.hash(student.password!, 10),
         }))
       );
 
