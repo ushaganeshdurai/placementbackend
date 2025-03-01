@@ -100,6 +100,53 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 
 //Add Staff
 
+// export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     let userRole = null;
+//     let userId = null;
+
+//     try {
+//       const SECRET_KEY = process.env.SECRET_KEY!;
+//       const decoded = await verify(jwtToken!, SECRET_KEY);
+//       console.log("Decoded JWT:", decoded);
+//       if (!decoded) throw new Error("Invalid session");
+//       userId = decoded.id;
+//       userRole = decoded.role;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     const newStaffs = c.req.valid('json');
+//     if (!Array.isArray(newStaffs)) {
+//       return c.json([], HttpStatusCodes.OK);
+//     }
+
+//     if (userRole === "super_admin") {
+//       // Hash all passwords before inserting
+//       const validStaffs = await Promise.all(newStaffs.map(async (staff) => ({
+//         email: staff.email,
+//         password: await bcrypt.hash(staff.password, 10), // Hash password with salt rounds = 10
+//       })));
+
+//       const insertedStaffs = await db.insert(staff).values(validStaffs).returning();
+//       return c.json(insertedStaffs, HttpStatusCodes.OK);
+//     }
+
+//     return c.json({ error: "Unauthorized" }, 403);
+
+//   } catch (error) {
+//     console.error('Staff creation error:', error);
+//     return c.json([], HttpStatusCodes.OK);
+//   }
+// };
+
+
 export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
   try {
     const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
@@ -113,7 +160,6 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
     try {
       const SECRET_KEY = process.env.SECRET_KEY!;
       const decoded = await verify(jwtToken!, SECRET_KEY);
-      console.log("Decoded JWT:", decoded);
       if (!decoded) throw new Error("Invalid session");
       userId = decoded.id;
       userRole = decoded.role;
@@ -128,24 +174,36 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
     }
 
     if (userRole === "super_admin") {
-      // Hash all passwords before inserting
       const validStaffs = await Promise.all(newStaffs.map(async (staff) => ({
         email: staff.email,
-        password: await bcrypt.hash(staff.password, 10), // Hash password with salt rounds = 10
+        password: await bcrypt.hash(staff.password, 10),
       })));
 
-      const insertedStaffs = await db.insert(staff).values(validStaffs).returning();
-      return c.json(insertedStaffs, HttpStatusCodes.OK);
+      try {
+        const insertedStaffs = await db.insert(staff).values(validStaffs).returning();
+        return c.json(insertedStaffs, HttpStatusCodes.OK);
+      } catch (dbError) {
+        // Check for duplicate email error (specific to your DB, e.g., PostgreSQL code 23505)
+        if (dbError.code === '23505' || dbError.message.includes('duplicate key')) {
+          const duplicateEmails = validStaffs
+            .filter((s) => dbError.message.includes(s.email))
+            .map((s) => s.email);
+          return c.json(
+            { error: `Staff with email ${duplicateEmails.join(', ')} already exist` },
+            HttpStatusCodes.CONFLICT // 409 Conflict
+          );
+        }
+        console.error('Database insertion error:', dbError);
+        return c.json({ error: "Failed to create staff due to database error" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+      }
     }
 
     return c.json({ error: "Unauthorized" }, 403);
-
   } catch (error) {
     console.error('Staff creation error:', error);
-    return c.json([], HttpStatusCodes.OK);
+    return c.json({ error: "Failed to process staff creation" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 };
-
 
 
 

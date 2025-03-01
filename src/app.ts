@@ -22,7 +22,15 @@ const routes = [
 
 
 //Yet to add staff, students cors
-app.use('/*', cors({ origin: 'http://localhost:5173' }));
+// app.use('/*', cors({ origin: 'http://localhost:5173' }));
+app.use(
+  cors({
+    origin: 'http://localhost:5173',
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+);
 
 routes.forEach((route) => {
   app.route("/", route);
