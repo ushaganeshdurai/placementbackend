@@ -23,7 +23,8 @@ export const oauth: AppRouteHandler<OAuthRoute> = async (c) => {
   const { data: { url }, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: "http://localhost:9999/auth/users/oauth/success"
+      // redirectTo: "http://localhost:9999/auth/users/oauth/success"
+      redirectTo: "http://localhost:9999/auth/success"
     }
   });
   console.log(url);
@@ -125,8 +126,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     SECRET_KEY
   );
 
-
-  // Step 7: Set Cookies for Session
   setCookie(c, "oauth_session", sessionToken, {
     httpOnly: true,
     secure: false, // Change to true in production
@@ -147,11 +146,14 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   setCookie(c, "student_session", "", { path: "/", maxAge: 0 });
 
   // Step 8: Redirect Based on Role
-  if (userRole === "super_admin") {
-    return c.redirect("/superadmin");
-  } else if (userRole === "staff") {
-    return c.redirect("/staff");
-  } else {
-    return c.redirect("/student");
-  }
+  // if (userRole === "super_admin") {
+  //   // return c.redirect("/superadmin");
+
+  // } else if (userRole === "staff") {
+  //   return c.redirect("/staff");
+  // } else {
+  //   return c.redirect("/student");
+  // }
+
+  return c.json({ success: true, role: userRole, email: user.email, userId: user.id, message: "Oauth login successful" }, HttpStatusCodes.OK)
 };
