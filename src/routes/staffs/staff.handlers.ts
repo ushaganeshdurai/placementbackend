@@ -79,7 +79,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   }
 
   try {
-    const staff_details = await db.select().from(staff).where(eq(staff.userId, String(userId))).execute();
+    const staff_details = await db.select().from(staff).where(eq(staff.staffId, String(staffId))).execute();
 
     const studentList = await db
       .select()
