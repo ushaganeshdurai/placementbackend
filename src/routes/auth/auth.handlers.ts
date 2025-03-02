@@ -3,7 +3,7 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import { setCookie } from "hono/cookie";
 import { sign } from 'hono/jwt';
-import { OAuthRoute, OAuthSuccessRoute } from "./auth.routes";
+import { OAuthRoute, OAuthSuccessRoute, OAuthStudentRoute } from "./auth.routes";
 
 type UserRoles = "student" | "admin" | "staff";
 
@@ -19,13 +19,31 @@ export const oauth: AppRouteHandler<OAuthRoute> = async (c) => {
   const { data: oauthData, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: "http://localhost:5173/auth/success"
-    }
+      redirectTo: "http://localhost:5173/auth/success",
+    },
   });
 
   console.log('OAuth redirect URL:', oauthData?.url);
   if (error) {
     console.log('OAuth initiation error:', error);
+    return c.json({ message: "Something went wrong" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  }
+  return c.redirect(oauthData!.url, HttpStatusCodes.MOVED_TEMPORARILY);
+};
+
+export const oauthStudent: AppRouteHandler<OAuthStudentRoute> = async (c) => {
+  const supabase = c.get("supabase");
+
+  const { data: oauthData, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: "http://localhost:5173/auth/success",
+    },
+  });
+
+  console.log('Student OAuth redirect URL:', oauthData?.url);
+  if (error) {
+    console.log('Student OAuth initiation error:', error);
     return c.json({ message: "Something went wrong" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
   return c.redirect(oauthData!.url, HttpStatusCodes.MOVED_TEMPORARILY);
@@ -43,7 +61,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     return c.json({ message: "Invalid or expired OAuth code", error: error.message }, HttpStatusCodes.BAD_REQUEST);
   }
 
-  // Retrieve Authenticated User
   const { data: userData, error: err } = await supabase.auth.getUser();
   if (err || !userData?.user) {
     console.error("Error retrieving user:", err);
@@ -51,7 +68,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   }
   const user = userData.user;
 
-  // Determine User Role
   let userRole: "student" | "staff" | "super_admin" | null = null;
   const firstSeven = user?.email?.substring(0, 7);
   const checkingIfStudent = /^[0-9]{7}$/.test(firstSeven || "");
@@ -69,7 +85,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
 
   console.log("Assigned user role:", userRole);
 
-  // Upsert Profile in "profiles" Table
   const { error: profileError } = await supabase
     .from("profiles")
     .upsert({ id: user.id, user_role: userRole, email: user.email }, { onConflict: "id" });
@@ -79,7 +94,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     return c.json({ message: "Error updating user role" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  // Insert/Update in the Correct Table (staff, students, super_admin)
   let table: string | null = null;
   let idColumn: string | null = null;
   let upsertData: Record<string, any> = { user_id: user.id, name: user.user_metadata.full_name, email: user.email };
@@ -106,7 +120,7 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
         return c.json({ message: `Error adding ${userRole}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
       }
       generatedId = insertedUser ? insertedUser[idColumn] : null;
-      console.log(`Generated ${idColumn}:`, generatedId);
+      console.log(`Generated ${idColumn || 'ID'}:`, generatedId);
     } else {
       const { error: roleError } = await query;
       if (roleError) {
@@ -116,7 +130,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     }
   }
 
-  // Generate Session Token
   const SECRET_KEY = process.env.SECRET_KEY!;
   const sessionToken = await sign(
     {
@@ -128,8 +141,8 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     SECRET_KEY
   );
 
-  // Set Cookies for Session
-  setCookie(c, "oauth_session", sessionToken, {
+  const cookieName = userRole === "student" ? "student_session" : "oauth_session";
+  setCookie(c, cookieName, sessionToken, {
     httpOnly: true,
     secure: false, // Set to true in production
     sameSite: "Lax",
@@ -140,13 +153,17 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
 
   setCookie(c, "admin_session", "", { path: "/", maxAge: 0 });
   setCookie(c, "staff_session", "", { path: "/", maxAge: 0 });
-  setCookie(c, "student_session", "", { path: "/", maxAge: 0 });
+  if (userRole !== "student") {
+    setCookie(c, "student_session", "", { path: "/", maxAge: 0 });
+  }
 
+  const redirectPath = userRole === "student" ? "/dashboard/student" : "/dashboard/superadmin";
   return c.json({
     success: true,
     role: userRole,
     userId: user.id,
     email: user.email,
-    message: "OAuth login successful"
+    message: "OAuth login successful",
+    redirect: redirectPath,
   }, HttpStatusCodes.OK);
 };

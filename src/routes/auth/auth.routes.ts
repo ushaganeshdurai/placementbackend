@@ -52,5 +52,26 @@ export const oauthSuccess = createRoute({
 })
 
 
+// New OAuth route for students
+export const oauthStudent = createRoute({
+  path: "/auth/oauth/student",
+  method: "get",
+  responses: {
+    [HttpStatusCodes.MOVED_TEMPORARILY]: {
+      description: "Redirect to OAuth provider for student login",
+      headers: {
+        Location: {
+          schema: { type: "string" },
+        },
+      },
+    },
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      z.object({ message: z.string() }),
+      "OAuth initiation failed"
+    ),
+  },
+});
+
 export type OAuthRoute = typeof oauth;
 export type OAuthSuccessRoute = typeof oauthSuccess;
+export type OAuthStudentRoute = typeof oauthStudent;

@@ -1,17 +1,14 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm"; // Add inArray
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
-import bcrypt from 'bcryptjs'
-// import { superAdmin } from "@/db/schemas/superAdminSchema";
-import { superAdmin } from "drizzle/schema";
+import bcrypt from 'bcryptjs';
+import { superAdmin, staff, profiles } from "drizzle/schema";
 import type { CreateStaffsRoute, GetOneRoute, LoginSuperAdmin, RemoveStaffRoute } from "./superadmin.routes";
-import { staff, students } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 
-
-// login the admin
+// Login the admin
 export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
   const { email, password } = c.req.valid("json");
 
@@ -27,29 +24,26 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
   }
 
   const admin = queryAdmin[0];
-
   const isPasswordValid = await bcrypt.compare(password, admin.password!);
 
   if (!isPasswordValid) {
     return c.json({ error: "Invalid credentials" }, 401);
   }
 
-
   const SECRET_KEY = process.env.SECRET_KEY!;
   const sessionToken = await sign({ id: admin.id, role: "super_admin" }, SECRET_KEY);
-  console.log("Context:", c);
-  // Set cookie with proper options
+
   setCookie(c, "admin_session", sessionToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV !== "production", // Secure only in production
+    secure: process.env.NODE_ENV !== "production",
     sameSite: "Lax",
     path: "/",
-    maxAge: 3600, // 1 hour
+    maxAge: 3600,
   });
-  return c.redirect("/superadmin", 302)
+  return c.redirect("/superadmin", 302);
 };
 
-
+// Get Super Admin Dashboard Data
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
 
@@ -62,11 +56,11 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
-    const decoded = await verify(jwtToken!, SECRET_KEY);
+    const decoded = await verify(jwtToken, SECRET_KEY);
     if (!decoded) throw new Error("Invalid session");
     userId = decoded.id;
     userRole = decoded.role;
-    console.log(jwtToken)
+    console.log('JWT Token:', jwtToken);
   } catch (error) {
     if (error === "TokenExpiredError") {
       return c.json({ error: "Session expired" }, 401);
@@ -80,25 +74,28 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   }
 
   try {
-    const staffList = await db.select().from(staff).execute();
+    const staffList = await db.select({
+      staffId: staff.staffId,
+      userId: staff.userId,
+      email: staff.email,
+      name: staff.name,
+    }).from(staff).execute();
+
+    console.log('Fetched staff list:', staffList);
+
     return c.json({
-      success: "Authorization successful",
+      success: true,
       userId,
       role: userRole,
       staff: staffList,
     }, 200);
-
   } catch (error) {
     console.error("Database query error:", error);
     return c.json({ error: "Failed to fetch data" }, 500);
   }
 };
 
-
-//Add Staff
-
-
-
+// Add Staff
 export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
   try {
     const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
@@ -111,7 +108,7 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
 
     try {
       const SECRET_KEY = process.env.SECRET_KEY!;
-      const decoded = await verify(jwtToken!, SECRET_KEY);
+      const decoded = await verify(jwtToken, SECRET_KEY);
       if (!decoded) throw new Error("Invalid session");
       userId = decoded.id;
       userRole = decoded.role;
@@ -126,28 +123,34 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
     }
 
     if (userRole === "super_admin") {
+      // Hash passwords
       const validStaffs = await Promise.all(newStaffs.map(async (staff) => ({
         email: staff.email,
         password: await bcrypt.hash(staff.password, 10),
       })));
 
-      try {
-        const insertedStaffs = await db.insert(staff).values(validStaffs).returning();
-        return c.json(insertedStaffs, HttpStatusCodes.OK);
-      } catch (dbError) {
-        // Check for duplicate email error (specific to your DB, e.g., PostgreSQL code 23505)
-        if (dbError.code === '23505' || dbError.message.includes('duplicate key')) {
-          const duplicateEmails = validStaffs
-            .filter((s) => dbError.message.includes(s.email))
-            .map((s) => s.email);
-          return c.json(
-            { error: `Staff with email ${duplicateEmails.join(', ')} already exist` },
-            HttpStatusCodes.CONFLICT // 409 Conflict
-          );
-        }
-        console.error('Database insertion error:', dbError);
-        return c.json({ error: "Failed to create staff due to database error" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+      // Check for existing emails
+      const emailsToCheck = validStaffs.map(s => s.email);
+      const existingEmails = await db.select({ email: staff.email })
+        .from(staff)
+        .where(inArray(staff.email, emailsToCheck.length > 0 ? emailsToCheck : [''])) // Avoid empty IN clause
+        .execute()
+        .then(rows => rows.map(row => row.email));
+
+      // Filter out duplicates
+      const uniqueStaffs = validStaffs.filter(s => !existingEmails.includes(s.email));
+      const duplicateEmails = validStaffs.filter(s => existingEmails.includes(s.email)).map(s => s.email);
+
+      let insertedStaffs = [];
+      if (uniqueStaffs.length > 0) {
+        insertedStaffs = await db.insert(staff).values(uniqueStaffs).returning();
       }
+
+      // Return response with both inserted and skipped info
+      return c.json({
+        inserted: insertedStaffs,
+        skipped: duplicateEmails.length > 0 ? `Skipped duplicate emails: ${duplicateEmails.join(', ')}` : null,
+      }, HttpStatusCodes.OK);
     }
 
     return c.json({ error: "Unauthorized" }, 403);
@@ -157,29 +160,37 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
   }
 };
 
-
-
-//Remove Staff
+// Remove Staff
 export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
   const { id } = c.req.valid("param");
 
   try {
-    const result = await db.delete(staff)
-      .where(eq(staff.staffId, id));
+    const staffResult = await db.delete(staff)
+      .where(eq(staff.staffId, id))
+      .returning();
 
-    if (result.length === 0) {
+    console.log('Staff deletion result:', staffResult);
+
+    if (staffResult.length === 0) {
       return c.json({
         errors: [{
           code: 'NOT_FOUND',
-          message: 'Staff not found'
+          message: 'Staff not found or already deleted'
         }]
       }, HttpStatusCodes.NOT_FOUND);
+    }
+
+    const userId = staffResult[0].userId;
+    if (userId) {
+      const profileResult = await db.delete(profiles)
+        .where(eq(profiles.id, userId))
+        .returning();
+      console.log('Profile deletion result:', profileResult);
     }
 
     return c.body(null, HttpStatusCodes.NO_CONTENT);
   } catch (error) {
     console.error('Staff deletion error:', error);
-
     return c.json({
       errors: [{
         path: ['param', 'id', 'staffId'],
@@ -188,4 +199,3 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
     }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
   }
 };
-
