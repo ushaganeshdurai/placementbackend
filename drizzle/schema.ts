@@ -21,13 +21,9 @@ export const profiles = pgTable("profiles", {
 export const staff = pgTable("staff", {
 	staffId: uuid("staff_id").defaultRandom().primaryKey().notNull(),
 	name: text(),
-	studentId: uuid("student_id"),
 	email: text().notNull(),
 	password: text(),
 	department: text(),
-	studentEmailId: text("student_email_id"),
-	jobDescription: text("job_description"),
-	driveDate: date("drive_date"),
 	appliedStudentsEmailIds: text("applied_students_emailIds").array(),
 	userId: uuid("user_id"),
 }, (table) => [

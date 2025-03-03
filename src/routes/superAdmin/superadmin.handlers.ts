@@ -193,7 +193,7 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
     console.error('Staff deletion error:', error);
     return c.json({
       errors: [{
-        path: ['param', 'id', 'staffId'],
+        path: [ 'staffId', ],
         message: 'Invalid staff ID format'
       }]
     }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
