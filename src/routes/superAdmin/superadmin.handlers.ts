@@ -128,7 +128,7 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
       // Hash all passwords before inserting
       const validStaffs = await Promise.all(newStaffs.map(async (staff) => ({
         email: staff.email,
-        password: await bcrypt.hash(staff.password, 10), // Hash password with salt rounds = 10
+        password: await bcrypt.hash(staff.password!, 10), // Hash password with salt rounds = 10
       })));
 
       const insertedStaffs = await db.insert(staff).values(validStaffs).returning();

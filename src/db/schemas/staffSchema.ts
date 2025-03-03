@@ -8,8 +8,6 @@ export const staff = pgTable('staff', {
   staffId: uuid('staff_id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   userId: text('user_id').references(() => users.id),
-  studentId: uuid('student_id').defaultRandom(),
-  studentEmailId: text('student_email_id'),
   email: text('email_id').notNull(),
   jobDescription: text('job_description'),
   driveDate: date('drive_date'),
@@ -31,10 +29,8 @@ export const insertStaffSchema = createInsertSchema(staff).required({
   staffId: true,
   userId:true,
   driveDate: true,
-  studentId: true,
   department: true,
   jobDescription: true,
-  studentEmailId: true,
    appliedStudentsEmailIds: true,
   name: true
 });

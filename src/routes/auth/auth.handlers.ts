@@ -16,15 +16,14 @@ declare module "@supabase/supabase-js" {
 }
 
 
-
 export const oauth: AppRouteHandler<OAuthRoute> = async (c) => {
   const supabase = c.get("supabase");
 
   const { data: { url }, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      // redirectTo: "http://localhost:9999/auth/users/oauth/success"
-      redirectTo: "http://localhost:9999/auth/success"
+      redirectTo: "http://localhost:9999/auth/users/oauth/success"
+      // redirectTo: "http://localhost:9999/auth/success"
     }
   });
   console.log(url);
@@ -53,25 +52,24 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     return c.json({ message: "User not found" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  // Step 3: Determine User Role
   let userRole: "student" | "staff" | "super_admin" | null = null;
-  const firstSeven = user?.email?.substring(0, 7);
-  const checkingIfStudent = /^[0-9]{7}$/.test(firstSeven || "");
-
-  if (["gushanandhini2004@gmail.com","mhajith2003@gmail.com", "madhumegha900@gmail.com"].includes(user.email!)) {
+  if (["gushanandhini2004@gmail.com", "mhajith2003@gmail.com", "madhumegha900@gmail.com"].includes(user.email!)) {
     userRole = "super_admin";
-  } else if (user.email === "kganeshdurai@gmail.com"||"wpage2098@gmail.com") {
+  } else if (/^\d{7}@saec\.ac\.in$/.test(user.email!)) { 
+    userRole = "student";
+  } else if (user.email === "kganeshdurai@gmail.com" || user.email === "wpage2098@gmail.com") {
     userRole = "staff";
-  } else if (!user.email!.includes("@saec.ac.in")) {
+  } else if (user.email!.endsWith("@saec.ac.in")) {  
+    userRole = "staff";
+  } else {
     await supabase.auth.admin.deleteUser(user.id, false);
     return c.json({ message: "Unauthorized: You're not a part of SAEC" }, HttpStatusCodes.UNAUTHORIZED);
-  } else {
-    userRole = checkingIfStudent ? "student" : "staff";
   }
+  
+  
 
   console.log("Assigned user role:", userRole);
 
-  // Step 4: Upsert Profile in "profiles" Table
   const { error: profileError } = await supabase
     .from("profiles")
     .upsert({ id: user.id, user_role: userRole, email: user.email }, { onConflict: "id" });
@@ -81,7 +79,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     return c.json({ message: "Error updating user role" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  // Step 5: Insert/Update in the Correct Table (staff, students, super_admin)
   let table: string | null = null;
   let idColumn: string | null = null;
   let data: Record<string, any> = { user_id: user.id, name: user.user_metadata.full_name, email: user.email };
@@ -114,7 +111,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     console.log(`Generated ${idColumn}:`, generatedId);
   }
 
-  // Step 6: Generate Session Token
   const SECRET_KEY = process.env.SECRET_KEY!;
   const sessionToken = await sign(
     {
@@ -140,20 +136,18 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     studentId: userRole === 'student' ? generatedId : null
   })
 
-  // Clear role-specific session cookies
   setCookie(c, "admin_session", "", { path: "/", maxAge: 0 });
   setCookie(c, "staff_session", "", { path: "/", maxAge: 0 });
   setCookie(c, "student_session", "", { path: "/", maxAge: 0 });
 
-  // Step 8: Redirect Based on Role
-  // if (userRole === "super_admin") {
-  //   // return c.redirect("/superadmin");
+  if (userRole === "super_admin") {
+    return c.redirect("/superadmin");
 
-  // } else if (userRole === "staff") {
-  //   return c.redirect("/staff");
-  // } else {
-  //   return c.redirect("/student");
-  // }
+  } else if (userRole === "staff") {
+    return c.redirect("/staff");
+  } else {
+    return c.redirect("/student");
+  }
 
-  return c.json({ success: true, role: userRole, email: user.email, userId: user.id, message: "Oauth login successful" }, HttpStatusCodes.OK)
+  // return c.json({ success: true, role: userRole, email: user.email, userId: user.id, message: "Oauth login successful" }, HttpStatusCodes.OK)
 };

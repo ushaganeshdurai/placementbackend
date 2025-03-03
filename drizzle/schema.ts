@@ -1,5 +1,4 @@
 import { pgTable, foreignKey, unique, uuid, text, date, integer, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
-import { sql } from "drizzle-orm"
 
 export const appliedOrNot = pgEnum("applied_or_not", ['yes', 'partial', 'no'])
 export const userRole = pgEnum("user_role", ['staff', 'student', 'super_admin'])
@@ -25,7 +24,6 @@ export const staff = pgTable("staff", {
 	email: text().notNull(),
 	password: text(),
 	department: text(),
-	studentEmailId: text("student_email_id"),
 	jobDescription: text("job_description"),
 	driveDate: date("drive_date"),
 	appliedStudentsEmailIds: text("applied_students_emailIds").array(),
@@ -38,7 +36,6 @@ export const staff = pgTable("staff", {
 		}).onDelete("cascade"),
 	unique("staff_student_id_key").on(table.studentId),
 	unique("staff_email_unique").on(table.email),
-	unique("staff_student_email_id_key").on(table.studentEmailId),
 ]);
 
 export const students = pgTable("students", {
