@@ -39,13 +39,11 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   const supabase = c.get("supabase");
   const { code } = c.req.valid("query");
 
-  // Step 1: Exchange Code for Session
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     return c.json({ message: "Something went wrong" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  // Step 2: Retrieve Authenticated User
   const { data: { user }, error: err } = await supabase.auth.getUser();
   if (err || !user) {
     console.log("Error retrieving user", err);
@@ -65,7 +63,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     await supabase.auth.admin.deleteUser(user.id, false);
     return c.json({ message: "Unauthorized: You're not a part of SAEC" }, HttpStatusCodes.UNAUTHORIZED);
   }
-  
   
 
   console.log("Assigned user role:", userRole);

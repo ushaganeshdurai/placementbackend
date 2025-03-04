@@ -14,6 +14,8 @@ export const drive = pgTable("drive", {
 	driveDate: date("drive_date"),
 	expiration: timestamp({ withTimezone: true, mode: 'string' }),
 	applicantList: text("applicant_list"),
+	batch: text(),
+	department: text().array(),
 });
 
 export const profiles = pgTable("profiles", {
@@ -61,7 +63,7 @@ export const students = pgTable("students", {
 	year: text(),
 	linkedinUrl: text("linkedin_url"),
 	githubUrl: text("github_url"),
-	regNo: integer("reg_no"),
+	regNo: text("reg_no").unique(),
 	rollNo: integer("roll_no"),
 	department: text(),
 	noOfArrears: integer("no_of_arrears"),

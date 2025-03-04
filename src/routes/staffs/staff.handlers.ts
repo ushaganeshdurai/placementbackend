@@ -3,8 +3,8 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-import type { CreateStudentsRoute, GetOneRoute, LoginStaffRoute, RemoveStudentRoute } from "./staff.routes";
-import { staff, students } from "drizzle/schema";
+import type { CreateJobAlertRoute, CreateStudentsRoute, GetOneRoute, LoginStaffRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
+import { drive, staff, students } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 
@@ -85,7 +85,6 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       .from(students)
       .where(eq(students.staffId, String(staffId)))
       .execute();
-    // why empty array is returned??? //manual login working fine oauth is something wrong
     return c.json({
       success: "Authorization successful",
       staffId,
@@ -120,7 +119,7 @@ export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) =>
       if (!decoded) throw new Error("Invalid session");
 
       userRole = decoded.role as string;
-      staffId = decoded.id as string;
+      staffId = decoded.staff_id as string;
     } catch (error) {
       console.error("Session Verification Error:", error);
       return c.json({ error: "Invalid session" }, 401);
@@ -186,5 +185,155 @@ export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
         message: 'Invalid student ID format'
       }]
     }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
+  }
+};
+
+
+//Post job
+export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let userRole: string | null = null;
+    let staffId: string | null = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken!, SECRET_KEY);
+      console.log("Decoded JWT:", decoded);
+      if (!decoded) throw new Error("Invalid session");
+
+      userRole = decoded.role as string;
+      staffId = decoded.staff_id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    if (!staffId) {
+      return c.json({ error: "Staff ID missing from token" }, 400);
+    }
+
+    const newJobs = c.req.valid("json");
+    if (!Array.isArray(newJobs)) {
+      return c.json([], HttpStatusCodes.OK);
+    }
+
+    if (userRole === "staff") {
+      const validJobs = await Promise.all(
+        newJobs.map(async (job) => ({
+          batch: job.batch,
+          expiration: job.expiration,
+          companyname: job.companyName,
+          drivedate: job.driveDate,
+        }))
+      );
+
+      console.log("Staff ID being used:", staffId);
+
+      const insertedJobs = await db.insert(drive).values(validJobs).returning();
+      return c.json(insertedJobs, HttpStatusCodes.OK);
+    }
+
+    return c.json({ error: "Unauthorized" }, 403);
+  } catch (error) {
+    console.error("Students creation error:", error);
+    return c.json([], HttpStatusCodes.OK);
+  }
+};
+
+
+
+//Remove job
+
+export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
+  try {
+    const { id } = c.req.valid("param");
+    const result = await db.delete(drive)
+      .where(eq(drive.id, id));
+    if (result.length === 0) {
+      return c.json({
+        errors: [{
+          code: 'NOT_FOUND',
+          message: 'Job not found'
+        }]
+      }, HttpStatusCodes.NOT_FOUND);
+    }
+
+    return c.body(null, HttpStatusCodes.NO_CONTENT);
+
+  } catch (error) {
+    console.error('Job deletion error:', error);
+    return c.json({
+      errors: [{
+        path: ['param', 'id'],
+        message: 'Invalid Job ID format'
+      }]
+    }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
+  }
+};
+
+
+//TODO: Password update routes 
+
+
+export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {
+  try {
+    // Get JWT Token from cookies
+    const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let staffId: string | null = null;
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded) throw new Error("Invalid session");
+
+      staffId = decoded.staff_id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    if (!staffId) {
+      return c.json({ error: "Staff ID missing from token" }, 400);
+    }
+
+    const { oldPassword, newPassword } = c.req.valid("json");
+
+    const staffQuery = await db
+      .select()
+      .from(staff)
+      .where(eq(staff.staffId, staffId))
+      .limit(1)
+      .execute();
+
+    const staffy = staffQuery[0];
+
+    if (!staffy) {
+      return c.json({ error: "Staff not found" }, 404);
+    }
+
+    const passwordMatches = bcrypt.compare(staffy.password!, oldPassword);
+    if (!passwordMatches) {
+      return c.json({ error: "Incorrect old password" }, 401);
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword,10);
+
+    await db
+      .update(staff)
+      .set({ password: hashedNewPassword })
+      .where(eq(staff.staffId, staffId));
+
+    return c.json({ message: "Password updated successfully" }, HttpStatusCodes.OK);
+  } catch (error) {
+    console.error("Password update error:", error);
+    return c.json({ error: "Something went wrong" }, 500);
   }
 };

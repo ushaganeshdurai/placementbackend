@@ -7,10 +7,10 @@ export const applied_or_not = pgEnum("applied_or_not", ['yes', 'no', 'partial'])
 
 export const students = pgTable('students', {
   staffId: uuid('staff_id').references(() => staff.staffId).notNull(),
-  studentId: uuid('student_id').defaultRandom().primaryKey().references(() => staff.studentId),
+  studentId: uuid('student_id').defaultRandom().primaryKey(),
   password: text('password'),
   userId: text('user_id'),
-  email: text('email_id').notNull().references(() => staff.studentEmailId),
+  email: text('email_id').notNull(),
   skillSet: text('skill_set'),
   phoneNumber: integer('phone_number'),
   languagesKnown: text('languages_known'),
@@ -21,8 +21,8 @@ export const students = pgTable('students', {
   year: text('year'),
   linkedinUrl: text('linkedin_url'),
   githubUrl: text('github_url'),
- appliedOrNot: applied_or_not("applied_or_not"),
-  regNo: integer('reg_no').unique(),
+  appliedOrNot: applied_or_not("applied_or_not"),
+  regNo: text('reg_no').unique(),
   rollNo: integer('roll_no').unique(),
   department: text('department'),
   noOfArrears: integer('no_of_arrears'),
@@ -40,17 +40,17 @@ export const insertStudentSchema = createInsertSchema(students).required({
 }).omit({
   studentId: true,
   userId: true,
-  department:true,
-  staffId:true,
+  department: true,
+  staffId: true,
   skillSet: true,
   languagesKnown: true,
   phoneNumber: true,
-  appliedOrNot:true,
-  noOfArrears: true, 
-  githubUrl: true, 
-  linkedinUrl: true, 
-  twelfthMark: true, 
-  tenthMark: true, 
+  appliedOrNot: true,
+  noOfArrears: true,
+  githubUrl: true,
+  linkedinUrl: true,
+  twelfthMark: true,
+  tenthMark: true,
   cgpa: true,
   name: true,
   regNo: true,
@@ -62,23 +62,22 @@ export const insertStudentSchema = createInsertSchema(students).required({
 
 
 
-export const insertStaffSchema = createInsertSchema(staff).required({
-  email: true,
-  password: true,
+
+export const insertResumeSchema = createInsertSchema(students).required({
+  skillSet: true,
+  languagesKnown: true,
+  phoneNumber: true,
+  noOfArrears: true,
+  githubUrl: true,
+  linkedinUrl: true,
+  twelfthMark: true,
+  tenthMark: true,
+  cgpa: true,
 }).omit({
-  staffId: true,
-  userId: true,
-  driveDate: true,
-  studentId: true,
-  department: true,
-  jobDescription: true,
-  studentEmailId: true,
-  appliedStudentsEmailIds: true,
-  name: true
-});
-
-
-
+  regNo: true,
+  rollNo: true, year: true,
+  email: true, password: true, staffId: true, studentId: true, userId: true, appliedOrNot: true, department: true
+})
 
 
 
