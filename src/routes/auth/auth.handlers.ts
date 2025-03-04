@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
-import { setCookie } from "hono/cookie";
+import { setCookie, getCookie } from "hono/cookie";
 import { sign, verify } from 'hono/jwt';
 import { OAuthRoute, OAuthSuccessRoute, OAuthStudentRoute, OAuthStaffRoute, SessionRoute } from "./auth.routes";
 
@@ -106,7 +106,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   }
   const user = userData.user;
 
-  // Log all user details in backend console
   console.log('User Details (Backend):', {
     id: user.id,
     email: user.email,
@@ -122,20 +121,21 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   const firstSeven = user?.email?.substring(0, 7);
   const checkingIfStudent = /^[0-9]{7}$/.test(firstSeven || "");
 
-  if (["gushanandhini2004@gmail.com", "wpage2098@gmail.com", "madhumegha900@gmail.com"].includes(user.email!)) {
+  if (["gushanandhini2004@gmail.com", "wpage2098@gmail.com", "mhajith2003@gmail.com", "madhumegha900@gmail.com"].includes(user.email!)) {
     userRole = "super_admin";
   } else if (user.email === "kganeshdurai@gmail.com") {
     userRole = "staff";
-  } else if (!user.email!.includes("@saec.ac.in")) {
+  } else if (/^\d{7}@saec\.ac\.in$/.test(user.email!)) {
+    userRole = "student";
+  } else if (user.email!.endsWith("@saec.ac.in")) {
+    userRole = checkingIfStudent ? "student" : "staff";
+  } else {
     await supabase.auth.admin.deleteUser(user.id, false);
     return c.json({ message: "Unauthorized: You're not a part of SAEC", redirect: returnUrl || '/auth/superadmin' }, HttpStatusCodes.UNAUTHORIZED);
-  } else {
-    userRole = checkingIfStudent ? "student" : "staff";
   }
 
   console.log("Assigned user role:", userRole);
 
-  // Enforce intended role
   if (intendedRole && userRole !== intendedRole) {
     console.log(`Role mismatch: intended ${intendedRole}, assigned ${userRole}`);
     return c.json({
@@ -145,7 +145,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     }, HttpStatusCodes.UNAUTHORIZED);
   }
 
-  // Check for student role: email must exist in students table
   if (intendedRole === "student") {
     const { data: existingStudent, error: studentError } = await supabase
       .from("students")
@@ -164,7 +163,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     console.log(`Student email ${user.email} found in database`);
   }
 
-  // Check for staff role: email must exist in staff table
   if (intendedRole === "staff") {
     const { data: existingStaff, error: staffError } = await supabase
       .from("staff")
@@ -233,6 +231,7 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     {
       id: user.id,
       role: userRole,
+      email: user.email, // Added email to JWT payload
       staff_id: userRole === "staff" ? generatedId : null,
       student_id: userRole === "student" ? generatedId : null,
     },
@@ -247,6 +246,14 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     path: "/",
     maxAge: 3600,
     domain: "localhost",
+  });
+
+  console.log("Generated session token payload:", {
+    id: user.id,
+    role: userRole,
+    email: user.email,
+    staff_id: userRole === "staff" ? generatedId : null,
+    student_id: userRole === "student" ? generatedId : null,
   });
 
   setCookie(c, "admin_session", "", { path: "/", maxAge: 0 });
@@ -270,38 +277,28 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   }, HttpStatusCodes.OK);
 };
 
-export const checkSession: AppRouteHandler<SessionRoute> = async (c) => {
-  const supabase = c.get("supabase");
-  const cookieHeader = c.req.header('Cookie');
-  const cookies = parseCookies(cookieHeader);
-  const cookieNames = ["oauth_session", "student_session", "staff_session"];
-  let token: string | undefined;
+export const checkSession = async (c) => {
+  const jwtToken = getCookie(c, "admin_session") || getCookie(c, "student_session") || getCookie(c, "oauth_session");
 
-  for (const name of cookieNames) {
-    token = cookies[name];
-    if (token) break;
-  }
-
-  if (!token) {
-    console.log("No session cookie found");
-    return c.json({ success: false, message: "No session found" }, HttpStatusCodes.UNAUTHORIZED);
+  if (!jwtToken) {
+    return c.json({ success: false, message: "No session found" }, 401);
   }
 
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
-    const decoded = await verify(token, SECRET_KEY);
-    const { id, role } = decoded;
-
-    const { data: userData, error } = await supabase.auth.getUser();
-    if (error || !userData?.user || userData.user.id !== id) {
-      console.log("Invalid session: user mismatch or error", error);
-      return c.json({ success: false, message: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
+    const decoded = await verify(jwtToken, SECRET_KEY);
+    if (!decoded || !decoded.role) {
+      return c.json({ success: false, message: "Invalid session" }, 401);
     }
 
-    console.log("Session verified successfully for role:", role);
-    return c.json({ success: true, role }, HttpStatusCodes.OK);
+    return c.json({
+      success: true,
+      userId: decoded.id,
+      role: decoded.role,
+      email: decoded.email,
+    }, 200);
   } catch (error) {
     console.error("Session verification error:", error);
-    return c.json({ success: false, message: "Invalid token" }, HttpStatusCodes.UNAUTHORIZED);
+    return c.json({ success: false, message: "Invalid or expired session" }, 401);
   }
 };

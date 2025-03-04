@@ -20,13 +20,24 @@ export const staffRelations = relations(staff, ({one, many}) => ({
 		fields: [staff.userId],
 		references: [profiles.id]
 	}),
-	students: many(students),
+	students_staffId: many(students, {
+		relationName: "students_staffId_staff_staffId"
+	}),
+	students_staffId: many(students, {
+		relationName: "students_staffId_staff_staffId"
+	}),
 }));
 
 export const studentsRelations = relations(students, ({one}) => ({
-	staff: one(staff, {
+	staff_staffId: one(staff, {
 		fields: [students.staffId],
-		references: [staff.staffId]
+		references: [staff.staffId],
+		relationName: "students_staffId_staff_staffId"
+	}),
+	staff_staffId: one(staff, {
+		fields: [students.staffId],
+		references: [staff.staffId],
+		relationName: "students_staffId_staff_staffId"
 	}),
 	profile: one(profiles, {
 		fields: [students.userId],
