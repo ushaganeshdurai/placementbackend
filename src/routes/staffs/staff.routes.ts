@@ -6,10 +6,10 @@ import { notFoundSchema } from "@/lib/constants";
 import { loginStaffSchema, selectStaffSchema } from "@/db/schemas/staffSchema";
 import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
+import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
+import { number } from "zod";
 
-
-
-//log in the admin
+// Log in the staff
 export const loginStaff = createRoute({
   path: "/staff/login",
   method: "post",
@@ -17,27 +17,22 @@ export const loginStaff = createRoute({
     body: jsonContentRequired(loginStaffSchema, "The staff login credentials"),
   },
   responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({
+        success: z.boolean(),
+        staffId: z.string(),
+        role: z.literal("staff"),
+      }),
+      "Staff login successful"
+    ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      { message: "Invalid credentials" },
+      z.object({ error: z.string() }),
       "Unauthorized access"
     ),
-    [HttpStatusCodes.MOVED_TEMPORARILY]: {
-      description: "Redirect to the staff page",
-      headers: {
-        Location: {
-          schema: {
-            type: 'string',
-          },
-        },
-      },
-    },
   },
-  // middleware: [supabaseMiddleware] as const
 });
 
-
-
-//to display what is in particular admin's data
+// Display staff data
 export const getOne = createRoute({
   path: "/staff",
   method: "get",
@@ -62,11 +57,7 @@ export const getOne = createRoute({
   middlewares: [supabaseMiddleware],
 });
 
-
-
-//students
-
-// To create many students at once
+// Create many students
 export const createstudentsroute = createRoute({
   path: "/staff/createstudents",
   method: "post",
@@ -88,15 +79,61 @@ export const createstudentsroute = createRoute({
   },
 });
 
+// Create jobs
+export const createjobalertroute = createRoute({
+  path: "/staff/createjobs",
+  method: "post",
+  request: {
+    body: jsonContentRequired(
+      z.array(insertDriveSchema),
+      "Add multiple drives",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.array(selectDriveSchema),
+      "Created many drives",
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(insertDriveSchema),
+      "The validation error(s)",
+    ),
+  },
+});
 
-// To remove one student
+export const jobIdSchema = z.object({
+  id: number()
+});
+
+// Delete job
+export const removejobroute = createRoute({
+  path: "/staff/job/{id}",
+  method: "delete",
+  request: {
+    params: jobIdSchema,
+  },
+  responses: {
+    [HttpStatusCodes.NO_CONTENT]: {
+      description: "Job deleted",
+    },
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "Job listing not found",
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(jobIdSchema),
+      "Invalid id error",
+    ),
+  },
+});
+
+// Remove one student
 export const removestudentroute = createRoute({
   path: "/staff/student/{id}",
   method: "delete",
   request: {
     params: IdUUIDParamsSchema,
   },
-
   responses: {
     [HttpStatusCodes.NO_CONTENT]: {
       description: "Student deleted",
@@ -112,9 +149,43 @@ export const removestudentroute = createRoute({
   },
 });
 
+const updatePasswordSchema = z.object({
+  oldPassword: z.string().min(6),
+  newPassword: z.string().min(6),
+});
 
+// Update password
+export const updatepassword = createRoute({
+  path: "/staff/updatepassword",
+  method: "patch",
+  request: {
+    body: jsonContentRequired(updatePasswordSchema, "Update staff password")
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({ message: z.string() }),
+      "Password updated successfully"
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createErrorSchema(updatePasswordSchema),
+      "Missing or invalid password details"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      z.object({ error: z.string() }),
+      "Incorrect old password"
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "Staff not found"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
 
-export type LoginStaffRoute = typeof loginStaff
+export type LoginStaffRoute = typeof loginStaff;
 export type GetOneRoute = typeof getOne;
 export type CreateStudentsRoute = typeof createstudentsroute;
 export type RemoveStudentRoute = typeof removestudentroute;
+export type CreateJobAlertRoute = typeof createjobalertroute;
+export type RemoveJobRoute = typeof removejobroute;
+export type UpdatePasswordRoute = typeof updatepassword;
