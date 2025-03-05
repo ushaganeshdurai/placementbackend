@@ -60,7 +60,7 @@ export const students = pgTable("students", {
 	tenthMark: doublePrecision("tenth_mark"),
 	twelfthMark: doublePrecision("twelfth_mark"),
 	cgpa: doublePrecision(),
-	year: text(),
+	year: integer("year"),
 	linkedinUrl: text("linkedin_url"),
 	githubUrl: text("github_url"),
 	regNo: text("reg_no").unique(),

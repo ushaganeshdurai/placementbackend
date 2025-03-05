@@ -99,7 +99,6 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   }
 };
 
-//Todo: get students details
 export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
   try {
     // Get JWT Token from cookies
@@ -143,6 +142,8 @@ export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
         linkedinUrl: resume.linkedinUrl,
         tengthMark: resume.tenthMark,
         cgpa: resume.cgpa,
+        year: resume.year,
+        department: resume.department,
         twelfthMark: resume.twelfthMark
       };
 

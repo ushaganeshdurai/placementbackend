@@ -158,7 +158,6 @@ export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) =>
 
 
 //Remove Student
-
 export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
   try {
     const { id } = c.req.valid("param");
@@ -226,9 +225,10 @@ export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) =>
       const validJobs = await Promise.all(
         newJobs.map(async (job) => ({
           batch: job.batch,
-          expiration: job.expiration,
+          department:job.department,
+          expiration: job.expiration, //format: mm/dd/yyyy, --:--:-- --
           companyname: job.companyName,
-          drivedate: job.driveDate,
+          drivedate: job.driveDate, //format: mm/dd/yyyy
         }))
       );
 
@@ -275,9 +275,6 @@ export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
     }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
   }
 };
-
-
-//TODO: Password update routes 
 
 
 export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {

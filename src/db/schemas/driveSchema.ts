@@ -11,6 +11,7 @@ export const drive = pgTable('drive', {
     driveDate: date("drive_date"),
     expiration: timestamp({ withTimezone: true, mode: 'string' }),
     applicantList: text("applicant_list"),
+    department:text("department").array(),
     batch: text(),
 });
 
@@ -25,9 +26,21 @@ export const selectDriveSchema = createSelectSchema(drive);
 export const insertDriveSchema = createInsertSchema(drive).required({
     driveDate: true,
     companyName: true,
+    department:true,
     jobDescription: true,
     expiration: true,
     batch: true
 });
+// example data to send 
 
-
+/**
+ *   {
+      "batch": "2025",
+      "expiration": "12/31/2025 23:59:59",
+      "companyName": "TechCorp Ltd.",
+      "driveDate": "12/20/2025",
+      "jobDescription": "Software Developer role for fresh graduates.",
+      "applicantList": "[John Doe, Jane Smith]",
+      "department": ["Computer Science", "Information Technology"]
+    },
+ */

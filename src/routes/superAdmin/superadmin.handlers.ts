@@ -125,7 +125,6 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
     }
 
     if (userRole === "super_admin") {
-      // Hash all passwords before inserting
       const validStaffs = await Promise.all(newStaffs.map(async (staff) => ({
         email: staff.email,
         password: await bcrypt.hash(staff.password!, 10), // Hash password with salt rounds = 10

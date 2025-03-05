@@ -28,7 +28,7 @@ export const loginStudent = createRoute({
             },
         },
     },
-    // middleware: [supabaseMiddleware] as const
+    middleware: [supabaseMiddleware] as const
 });
 
 
