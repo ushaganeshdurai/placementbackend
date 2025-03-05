@@ -4,6 +4,8 @@ import type { AppRouteHandler } from "@/lib/types";
 import { setCookie, getCookie } from "hono/cookie";
 import { sign, verify } from 'hono/jwt';
 import { OAuthRoute, OAuthSuccessRoute, OAuthStudentRoute, OAuthStaffRoute, SessionRoute } from "./auth.routes";
+import db from "@/db";
+import { staff, students, superAdmin } from "drizzle/schema"; // Added superAdmin
 
 type UserRoles = "student" | "admin" | "staff" | "super_admin";
 
@@ -13,7 +15,6 @@ declare module "@supabase/supabase-js" {
   }
 }
 
-// Helper function to parse cookies from the Cookie header
 const parseCookies = (cookieHeader: string | undefined): Record<string, string> => {
   if (!cookieHeader) return {};
   const cookies: Record<string, string> = {};
@@ -96,19 +97,19 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     console.error('OAuth exchange error:', error.message, error);
-    return c.json({ 
-      message: "Invalid or expired OAuth code", 
-      error: error.message, 
-      redirect: returnUrl || '/auth/superadmin' 
+    return c.json({
+      message: "Invalid or expired OAuth code",
+      error: error.message,
+      redirect: returnUrl || '/auth/superadmin'
     }, HttpStatusCodes.BAD_REQUEST);
   }
 
   const { data: userData, error: err } = await supabase.auth.getUser();
   if (err || !userData?.user) {
     console.error("Error retrieving user:", err);
-    return c.json({ 
-      message: "User not found", 
-      redirect: returnUrl || '/auth/superadmin' 
+    return c.json({
+      message: "User not found",
+      redirect: returnUrl || '/auth/superadmin'
     }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
   const user = userData.user;
@@ -122,39 +123,50 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   });
 
   let userRole: UserRoles | null = null;
-  const firstSeven = user?.email?.substring(0, 7);
-  const checkingIfStudent = /^[0-9]{7}$/.test(firstSeven || "");
 
-  // Role assignment and authorization checks
-  if (["gushanandhini2004@gmail.com", "wpage2098@gmail.com", "mhajith2003@gmail.com", "madhumegha900@gmail.com"].includes(user.email!)) {
-    userRole = "super_admin";
-    console.log('Assigned super_admin role based on email whitelist');
-  } else if (user.email === "kganeshdurai@gmail.com") {
+  // Check database tables first
+  const staffCheck = await db.select({ email: staff.email }).from(staff).where(eq(staff.email, user.email)).limit(1).execute();
+  const studentCheck = await db.select({ email: students.email }).from(students).where(eq(students.email, user.email)).limit(1).execute();
+  const superAdminCheck = await db.select({ email: superAdmin.email }).from(superAdmin).where(eq(superAdmin.email, user.email)).limit(1).execute();
+
+  if (staffCheck.length > 0 && intendedRole === "staff") {
     userRole = "staff";
-    console.log('Assigned staff role based on specific email');
-  } else if (/^\d{7}@saec\.ac\.in$/.test(user.email!)) {
+    console.log(`Assigned staff role for ${user.email} based on staff table`);
+  } else if (studentCheck.length > 0 && intendedRole === "student") {
     userRole = "student";
-    console.log('Assigned student role based on email pattern');
-  } else if (user.email!.endsWith("@saec.ac.in")) {
-    userRole = checkingIfStudent ? "student" : "staff";
-    console.log(`Assigned ${userRole} role based on SAEC domain and student check`);
+    console.log(`Assigned student role for ${user.email} based on students table`);
+  } else if (superAdminCheck.length > 0 && intendedRole === "super_admin") {
+    userRole = "super_admin";
+    console.log(`Assigned super_admin role for ${user.email} based on super_admin table`);
   } else {
-    console.log(`Unauthorized user ${user.email} - not part of SAEC`);
-    await supabase.auth.admin.deleteUser(user.id, false);
-    return c.json({ 
-      success: false,
-      message: "Unauthorized: You're not a part of SAEC", 
-      redirect: returnUrl || '/auth/superadmin',
-      email: user.email
-    }, HttpStatusCodes.UNAUTHORIZED);
+    // Fallback logic for SAEC domain if not in any table
+    const firstSeven = user?.email?.substring(0, 7);
+    const checkingIfStudent = /^[0-9]{7}$/.test(firstSeven || "");
+
+    if (/^\d{7}@saec\.ac\.in$/.test(user.email!)) {
+      userRole = "student";
+      console.log('Assigned student role based on email pattern');
+    } else if (user.email!.endsWith("@saec.ac.in")) {
+      userRole = checkingIfStudent ? "student" : "staff";
+      console.log(`Assigned ${userRole} role based on SAEC domain and student check`);
+    } else {
+      console.log(`Unauthorized user ${user.email} - not in any table and not part of SAEC`);
+      await supabase.auth.admin.deleteUser(user.id, false);
+      return c.json({
+        success: false,
+        message: "Unauthorized: You're not a part of SAEC",
+        redirect: returnUrl || '/auth/superadmin',
+        email: user.email
+      }, HttpStatusCodes.UNAUTHORIZED);
+    }
   }
 
   // Role mismatch check
   if (intendedRole && userRole !== intendedRole) {
     console.log(`Role mismatch detected - Intended: ${intendedRole}, Assigned: ${userRole}`);
-    const redirectPath = returnUrl || (intendedRole === "student" ? "/auth/student" : 
-                                     intendedRole === "staff" ? "/auth/staff" : 
-                                     "/auth/superadmin");
+    const redirectPath = returnUrl || (intendedRole === "student" ? "/auth/student" :
+      intendedRole === "staff" ? "/auth/staff" :
+        "/auth/superadmin");
     return c.json({
       success: false,
       message: `Unauthorized: Expected ${intendedRole} role, but user is ${userRole}`,
@@ -164,47 +176,25 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     }, HttpStatusCodes.UNAUTHORIZED);
   }
 
-  // Student validation
-  if (intendedRole === "student") {
-    const { data: existingStudent, error: studentError } = await supabase
-      .from("students")
-      .select("email")
-      .eq("email", user.email)
-      .single();
-
-    if (studentError || !existingStudent) {
-      console.log(`Student validation failed for ${user.email}`, studentError?.message || "No record found");
-      return c.json({
-        success: false,
-        message: "Unauthorized: Student email not registered in the system",
-        redirect: returnUrl || "/auth/student",
-        email: user.email
-      }, HttpStatusCodes.UNAUTHORIZED);
-    }
-    console.log(`Student email ${user.email} validated successfully`);
+  // Validation already done above, but kept for consistency
+  if (intendedRole === "student" && studentCheck.length === 0) {
+    return c.json({
+      success: false,
+      message: "Unauthorized: Student email not registered in the system",
+      redirect: returnUrl || "/auth/student",
+      email: user.email
+    }, HttpStatusCodes.UNAUTHORIZED);
   }
 
-  // Staff validation
-  if (intendedRole === "staff") {
-    const { data: existingStaff, error: staffError } = await supabase
-      .from("staff")
-      .select("email")
-      .eq("email", user.email)
-      .single();
-
-    if (staffError || !existingStaff) {
-      console.log(`Staff validation failed for ${user.email}`, staffError?.message || "No record found");
-      return c.json({
-        success: false,
-        message: "Unauthorized: Staff email not registered in the system",
-        redirect: returnUrl || "/auth/staff",
-        email: user.email
-      }, HttpStatusCodes.UNAUTHORIZED);
-    }
-    console.log(`Staff email ${user.email} validated successfully`);
+  if (intendedRole === "staff" && staffCheck.length === 0) {
+    return c.json({
+      success: false,
+      message: "Unauthorized: Staff email not registered in the system",
+      redirect: returnUrl || "/auth/staff",
+      email: user.email
+    }, HttpStatusCodes.UNAUTHORIZED);
   }
 
-  
   const { error: profileError } = await supabase
     .from("profiles")
     .upsert({ id: user.id, user_role: userRole, email: user.email }, { onConflict: "id" });
@@ -265,7 +255,7 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   const cookieName = userRole === "student" ? "student_session" : userRole === "staff" ? "staff_session" : "oauth_session";
   setCookie(c, cookieName, sessionToken, {
     httpOnly: true,
-    secure: false, // Set to true in production
+    secure: false,
     sameSite: "Lax",
     path: "/",
     maxAge: 3600,
@@ -302,10 +292,10 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
 };
 
 export const checkSession: AppRouteHandler<SessionRoute> = async (c) => {
-  const jwtToken = getCookie(c, "student_session") || 
-                   getCookie(c, "staff_session") || 
-                   getCookie(c, "admin_session") || 
-                   getCookie(c, "oauth_session");
+  const jwtToken = getCookie(c, "student_session") ||
+    getCookie(c, "staff_session") ||
+    getCookie(c, "admin_session") ||
+    getCookie(c, "oauth_session");
 
   if (!jwtToken) {
     console.log("No session cookie found");
@@ -323,7 +313,7 @@ export const checkSession: AppRouteHandler<SessionRoute> = async (c) => {
     console.log("Session validated:", decoded);
     return c.json({
       success: true,
-      userId: decoded.staff_id || decoded.student_id || decoded.id || decoded.userId, // Flexible ID handling
+      userId: decoded.staff_id || decoded.student_id || decoded.id || decoded.userId,
       role: decoded.role,
       email: decoded.email,
     }, 200);
