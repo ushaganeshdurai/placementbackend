@@ -184,6 +184,62 @@ export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
 };
 
 // Post Job
+// export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     let userRole: string | null = null;
+//     let staffId: string | null = null;
+
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       console.log("Decoded JWT:", decoded);
+//       if (!decoded) throw new Error("Invalid session");
+//       staffId = (decoded.staff_id || decoded.id) as string;
+//       userRole = decoded.role;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     if (!staffId) {
+//       return c.json({ error: "Staff ID missing from token" }, 400);
+//     }
+
+//     const newJobs = c.req.valid("json");
+//     if (!Array.isArray(newJobs)) {
+//       return c.json([], HttpStatusCodes.OK);
+//     }
+
+//     if (userRole === "staff") {
+//       const validJobs = await Promise.all(
+//         newJobs.map(async (job) => ({
+//           batch: job.batch,
+//           expiration: job.expiration,
+//           companyname: job.companyName,
+//           drivedate: job.driveDate,
+//           staffId: staffId, // Uncomment if drive schema includes staffId
+//         }))
+//       );
+
+//       console.log("Staff ID being used:", staffId);
+//       const insertedJobs = await db.insert(drive).values(validJobs).returning();
+//       return c.json(insertedJobs, HttpStatusCodes.OK);
+//     }
+
+//     return c.json({ error: "Unauthorized" }, 403);
+//   } catch (error) {
+//     console.error("Jobs creation error:", error);
+//     return c.json([], HttpStatusCodes.OK);
+//   }
+// };
+
+
+// Post Job
 export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
   try {
     const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
@@ -220,13 +276,15 @@ export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) =>
         newJobs.map(async (job) => ({
           batch: job.batch,
           expiration: job.expiration,
-          companyname: job.companyName,
-          drivedate: job.driveDate,
-          staffId: staffId, // Uncomment if drive schema includes staffId
+          companyname: job.companyname, // Align with schema
+          drivedate: job.drivedate,     // Align with schema
+          jobDescription: job.jobDescription, // Add optional field
+          staffId: staffId,
         }))
       );
 
       console.log("Staff ID being used:", staffId);
+      console.log("Inserting jobs:", validJobs); // Debug
       const insertedJobs = await db.insert(drive).values(validJobs).returning();
       return c.json(insertedJobs, HttpStatusCodes.OK);
     }
