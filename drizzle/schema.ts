@@ -4,7 +4,6 @@ import { sql } from "drizzle-orm"
 export const appliedOrNot = pgEnum("applied_or_not", ['yes', 'partial', 'no'])
 export const userRole = pgEnum("user_role", ['staff', 'student', 'super_admin'])
 
-
 export const drive = pgTable("drive", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "drive_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
@@ -17,6 +16,8 @@ export const drive = pgTable("drive", {
 	batch: text(),
 	department: text().array(),
 });
+
+
 
 export const profiles = pgTable("profiles", {
 	id: uuid().primaryKey().notNull(),
