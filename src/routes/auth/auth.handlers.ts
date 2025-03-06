@@ -5,7 +5,7 @@ import { setCookie, getCookie } from "hono/cookie";
 import { sign, verify } from 'hono/jwt';
 import { OAuthRoute, OAuthSuccessRoute, OAuthStudentRoute, OAuthStaffRoute, SessionRoute } from "./auth.routes";
 import db from "@/db";
-import { staff, students, superAdmin } from "drizzle/schema"; // Added superAdmin
+import { staff, students, superAdmin } from "drizzle/schema";
 
 type UserRoles = "student" | "admin" | "staff" | "super_admin";
 
@@ -124,7 +124,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
 
   let userRole: UserRoles | null = null;
 
-  // Check database tables first
   const staffCheck = await db.select({ email: staff.email }).from(staff).where(eq(staff.email, user.email)).limit(1).execute();
   const studentCheck = await db.select({ email: students.email }).from(students).where(eq(students.email, user.email)).limit(1).execute();
   const superAdminCheck = await db.select({ email: superAdmin.email }).from(superAdmin).where(eq(superAdmin.email, user.email)).limit(1).execute();
@@ -139,7 +138,35 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     userRole = "super_admin";
     console.log(`Assigned super_admin role for ${user.email} based on super_admin table`);
   } else {
-    // Fallback logic for SAEC domain if not in any table
+    if (staffCheck.length > 0) {
+      userRole = "staff";
+      console.log(`Existing staff found: ${user.email}`);
+      return c.json({
+        success: false,
+        message: `Unauthorized: You are assigned as staff, not ${intendedRole}`,
+        redirect: '/auth/staff',
+        email: user.email
+      }, HttpStatusCodes.UNAUTHORIZED);
+    } else if (studentCheck.length > 0) {
+      userRole = "student";
+      console.log(`Existing student found: ${user.email}`);
+      return c.json({
+        success: false,
+        message: `Unauthorized: You are assigned as student, not ${intendedRole}`,
+        redirect: '/auth/student',
+        email: user.email
+      }, HttpStatusCodes.UNAUTHORIZED);
+    } else if (superAdminCheck.length > 0) {
+      userRole = "super_admin";
+      console.log(`Existing super_admin found: ${user.email}`);
+      return c.json({
+        success: false,
+        message: `Unauthorized: You are assigned as super_admin, not ${intendedRole}`,
+        redirect: '/auth/superadmin',
+        email: user.email
+      }, HttpStatusCodes.UNAUTHORIZED);
+    }
+
     const firstSeven = user?.email?.substring(0, 7);
     const checkingIfStudent = /^[0-9]{7}$/.test(firstSeven || "");
 
@@ -151,7 +178,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
       console.log(`Assigned ${userRole} role based on SAEC domain and student check`);
     } else {
       console.log(`Unauthorized user ${user.email} - not in any table and not part of SAEC`);
-      await supabase.auth.admin.deleteUser(user.id, false);
       return c.json({
         success: false,
         message: "Unauthorized: You're not a part of SAEC",
@@ -161,7 +187,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     }
   }
 
-  // Role mismatch check
   if (intendedRole && userRole !== intendedRole) {
     console.log(`Role mismatch detected - Intended: ${intendedRole}, Assigned: ${userRole}`);
     const redirectPath = returnUrl || (intendedRole === "student" ? "/auth/student" :
@@ -176,7 +201,6 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     }, HttpStatusCodes.UNAUTHORIZED);
   }
 
-  // Validation already done above, but kept for consistency
   if (intendedRole === "student" && studentCheck.length === 0) {
     return c.json({
       success: false,
@@ -252,10 +276,19 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     SECRET_KEY
   );
 
-  const cookieName = userRole === "student" ? "student_session" : userRole === "staff" ? "staff_session" : "oauth_session";
+  // Clear all existing session cookies before setting the new one
+  setCookie(c, "student_session", "", { path: "/", maxAge: 0, domain: "localhost" });
+  setCookie(c, "staff_session", "", { path: "/", maxAge: 0, domain: "localhost" });
+  setCookie(c, "oauth_session", "", { path: "/", maxAge: 0, domain: "localhost" });
+  setCookie(c, "admin_session", "", { path: "/", maxAge: 0, domain: "localhost" });
+
+  // Set the new session cookie based on the user role
+  const cookieName = userRole === "student" ? "student_session" :
+                    userRole === "staff" ? "staff_session" :
+                    "oauth_session"; // Used for super_admin
   setCookie(c, cookieName, sessionToken, {
     httpOnly: true,
-    secure: false,
+    secure: false, // Set to true in production
     sameSite: "Lax",
     path: "/",
     maxAge: 3600,
@@ -270,11 +303,9 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
     student_id: userRole === "student" ? generatedId : null,
   });
 
-  setCookie(c, "admin_session", "", { path: "/", maxAge: 0 });
-  if (userRole !== "student") setCookie(c, "student_session", "", { path: "/", maxAge: 0 });
-  if (userRole !== "staff") setCookie(c, "staff_session", "", { path: "/", maxAge: 0 });
-
-  const redirectPath = userRole === "student" ? "/dashboard/student" : userRole === "staff" ? "/dashboard/staff" : "/dashboard/superadmin";
+  const redirectPath = userRole === "student" ? "/dashboard/student" :
+                      userRole === "staff" ? "/dashboard/staff" :
+                      "/dashboard/superadmin";
   return c.json({
     success: true,
     role: userRole,
