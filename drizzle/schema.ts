@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm"
 
 export const appliedOrNot = pgEnum("applied_or_not", ['yes', 'partial', 'no'])
 export const userRole = pgEnum("user_role", ['staff', 'student', 'super_admin'])
+export const placedOrNot = pgEnum("placed_or_not",['yes','no'])
 
 export const drive = pgTable("drive", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -56,12 +57,13 @@ export const students = pgTable("students", {
 	email: text().notNull(),
 	skillSet: text("skill_set"),
 	phoneNumber: integer("phone_number"),
+	// placedStatus:text('placed_status'),
 	languagesKnown: text("languages_known"),
 	name: text(),
 	tenthMark: doublePrecision("tenth_mark"),
 	twelfthMark: doublePrecision("twelfth_mark"),
 	cgpa: doublePrecision(),
-	year: text(),
+	year: integer("year"),
 	linkedinUrl: text("linkedin_url"),
 	githubUrl: text("github_url"),
 	regNo: text("reg_no").unique(),

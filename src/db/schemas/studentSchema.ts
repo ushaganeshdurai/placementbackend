@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, unique, integer, doublePrecision, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, unique, integer, doublePrecision, pgEnum, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { staff } from "./staffSchema";
@@ -10,15 +10,16 @@ export const students = pgTable('students', {
   studentId: uuid('student_id').defaultRandom().primaryKey(),
   password: text('password'),
   userId: text('user_id'),
+  // placedStatus:text("placed_status"),
   email: text('email_id').notNull(),
   skillSet: text('skill_set'),
-  phoneNumber: integer('phone_number'),
+  phoneNumber: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "ph_no_seq", minValue: 1111111111, maxValue: 9999999999, cache: 1 }),
   languagesKnown: text('languages_known'),
   name: text('name').notNull(),
   tenthMark: doublePrecision('tenth_mark'),
   twelfthMark: doublePrecision('twelfth_mark'),
   cgpa: doublePrecision('cgpa'),
-  year: text('year'),
+  year: integer('year'),
   linkedinUrl: text('linkedin_url'),
   githubUrl: text('github_url'),
   appliedOrNot: applied_or_not("applied_or_not"),
@@ -68,15 +69,17 @@ export const insertResumeSchema = createInsertSchema(students).required({
   languagesKnown: true,
   phoneNumber: true,
   noOfArrears: true,
+  department: true,
+  year: true,
   githubUrl: true,
   linkedinUrl: true,
   twelfthMark: true,
   tenthMark: true,
   cgpa: true,
 }).omit({
-  regNo: true,
-  rollNo: true, year: true,
-  email: true, password: true, staffId: true, studentId: true, userId: true, appliedOrNot: true, department: true
+  regNo: true, name: true,
+  rollNo: true,
+  email: true, password: true, staffId: true, studentId: true, userId: true, appliedOrNot: true,
 })
 
 
