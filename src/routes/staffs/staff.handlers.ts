@@ -225,10 +225,11 @@ export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) =>
       const validJobs = await Promise.all(
         newJobs.map(async (job) => ({
           batch: job.batch,
+          jobDescription:job.jobDescription,
           department:job.department,
           expiration: job.expiration, //format: mm/dd/yyyy, --:--:-- --
-          companyname: job.companyName,
-          drivedate: job.driveDate, //format: mm/dd/yyyy
+          companyName: job.companyName,
+          driveDate: job.driveDate, //format: mm/dd/yyyy
         }))
       );
 

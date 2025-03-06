@@ -10,6 +10,7 @@ export const students = pgTable('students', {
   studentId: uuid('student_id').defaultRandom().primaryKey(),
   password: text('password'),
   userId: text('user_id'),
+  // placedStatus:text("placed_status"),
   email: text('email_id').notNull(),
   skillSet: text('skill_set'),
   phoneNumber: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "ph_no_seq", minValue: 1111111111, maxValue: 9999999999, cache: 1 }),
