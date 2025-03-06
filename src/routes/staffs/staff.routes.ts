@@ -7,7 +7,6 @@ import { loginStaffSchema, selectStaffSchema } from "@/db/schemas/staffSchema";
 import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
-import { number } from "zod";
 
 // Log in the staff
 export const loginStaff = createRoute({
@@ -38,8 +37,15 @@ export const getOne = createRoute({
   method: "get",
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectStaffSchema,
-      "The requested staff details"
+      z.object({
+        success: z.string(),
+        staffId: z.string(),
+        role: z.string(),
+        staff: selectStaffSchema,
+        students: z.array(selectStudentSchema),
+        drives: z.array(selectDriveSchema), // Include drives in response schema
+      }),
+      "The requested staff details including jobs"
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createErrorSchema(selectStaffSchema),
@@ -102,10 +108,9 @@ export const createjobalertroute = createRoute({
 });
 
 export const jobIdSchema = z.object({
-  id: number()
+  id: z.string().transform((val) => Number(val)), // Coerce string to number
 });
 
-// Delete job
 export const removejobroute = createRoute({
   path: "/staff/job/{id}",
   method: "delete",
@@ -126,6 +131,8 @@ export const removejobroute = createRoute({
     ),
   },
 });
+
+
 
 // Remove one student
 export const removestudentroute = createRoute({

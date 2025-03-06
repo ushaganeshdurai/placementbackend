@@ -40,17 +40,17 @@ export const loginStaff: AppRouteHandler<LoginStaffRoute> = async (c) => {
 
   setCookie(c, "staff_session", sessionToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV !== "production", // False in dev
+    secure: process.env.NODE_ENV !== "production",
     sameSite: "Lax",
     path: "/",
-    maxAge: 3600, // 1 hour
+    maxAge: 3600,
   });
 
   console.log("Staff login successful, redirecting to /staff");
   return c.redirect("/staff", 302);
 };
 
-// Get staff data
+// Get staff data (including jobs)
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
 
@@ -65,7 +65,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken, SECRET_KEY);
     if (!decoded) throw new Error("Invalid session");
-    staffId = (decoded.staff_id || decoded.id) as string; // Handle both
+    staffId = (decoded.staff_id || decoded.id) as string;
     userRole = decoded.role;
     console.log("Decoded JWT:", decoded);
   } catch (error) {
@@ -87,9 +87,11 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       .from(students)
       .where(eq(students.staffId, staffId))
       .execute();
+    const jobList = await db.select().from(drive).execute();
 
     console.log("Staff details:", staff_details);
     console.log("Student list:", studentList);
+    console.log("Job list:", jobList);
 
     return c.json({
       success: "Authorization successful",
@@ -97,6 +99,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       role: userRole,
       staff: staff_details[0],
       students: studentList,
+      drives: jobList,
     }, 200);
   } catch (error) {
     console.error("Database query error:", error);
@@ -183,11 +186,7 @@ export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
   }
 };
 
-
-
-
-
-//Post job
+// Post job
 export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
   try {
     const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
@@ -224,11 +223,11 @@ export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) =>
       const validJobs = await Promise.all(
         newJobs.map(async (job) => ({
           batch: job.batch,
-          jobDescription:job.jobDescription,
-          department:job.department,
-          expiration: job.expiration, //format: mm/dd/yyyy, --:--:-- --
+          jobDescription: job.jobDescription,
+          department: job.department,
+          expiration: job.expiration,
           companyName: job.companyName,
-          driveDate: job.driveDate, //format: mm/dd/yyyy
+          driveDate: job.driveDate,
         }))
       );
 
@@ -240,20 +239,27 @@ export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) =>
 
     return c.json({ error: "Unauthorized" }, 403);
   } catch (error) {
-    console.error("Students creation error:", error);
+    console.error("Job creation error:", error);
     return c.json([], HttpStatusCodes.OK);
   }
 };
 
-
-
+// Remove job
 export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
   try {
     const { id } = c.req.valid("param");
+    console.log('Attempting to delete job with ID:', id, 'Type:', typeof id);
+
+    const numericId = Number(id);
+    if (isNaN(numericId)) {
+      return c.json({
+        errors: [{ path: ["param", "id"], message: "ID must be a valid number" }],
+      }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
+    }
 
     const result = await db
       .delete(drive)
-      .where(eq(drive.id, id))
+      .where(eq(drive.id, numericId))
       .returning();
 
     console.log("Deletion result:", result);
@@ -267,7 +273,7 @@ export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
   } catch (error) {
     console.error("Job deletion error:", error);
     return c.json({
-      errors: [{ path: ["param", "id"], message: "Invalid job ID format" }],
+      errors: [{ path: ["param", "id"], message: error.message || "Invalid job ID format" }],
     }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
   }
 };
