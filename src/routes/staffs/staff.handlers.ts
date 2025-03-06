@@ -255,7 +255,7 @@ export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
     const { id } = c.req.valid("param");
     const result = await db.delete(drive)
       .where(eq(drive.id, id));
-    return c.body(null, HttpStatusCodes.OK);
+    return c.body("Job deleted successfully", HttpStatusCodes.OK);
 
   } catch (error) {
     console.error('Job deletion error:', error);
