@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, timestamp, date, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, date, bigint, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 
@@ -7,10 +7,10 @@ export const drive = pgTable('drive', {
     id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "drive_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
     companyName: varchar("company_name"),
-    jobDescription: text("job description"),
+    jobDescription: text("job_description"),
     driveDate: date("drive_date"),
     expiration: timestamp({ withTimezone: true, mode: 'string' }),
-    applicantList: text("applicant_list"),
+    applicantList: uuid("applicant_list").array(),
     department:text("department").array(),
     batch: text(),
 });

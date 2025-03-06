@@ -92,8 +92,8 @@ export const createresume = createRoute({
 const updatePasswordSchema = z.object({
     oldPassword: z.string().min(6),
     newPassword: z.string().min(6),
-  });
-  
+});
+
 
 export const updatepassword = createRoute({
     path: "/student/updatepassword",
@@ -122,11 +122,40 @@ export const updatepassword = createRoute({
     middlewares: [supabaseMiddleware],
 });
 
+//TODO: apply for drive
 
 
+const driveIdSchema = z.object({
+    id: z.number()
+});
+
+export const applyfordrive = createRoute({
+    path: "/student/applyfordrive",
+    method: "post",
+
+    request: {
+        body: jsonContentRequired(driveIdSchema, "drive Id is needed")
+    },
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            z.object({ message: z.string() }),
+            "Applied for drive successfully"
+        ),
+        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+            z.object({ error: z.string() }),
+            "Incorrect password"
+        ),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(
+            notFoundSchema,
+            "Student not found"
+        ),
+    },
+    middlewares: [supabaseMiddleware],
+});
 
 
 export type LoginStudentRoute = typeof loginStudent
 export type GetOneRoute = typeof getOne;
 export type CreateResumeRoute = typeof createresume
 export type UpdatePasswordRoute = typeof updatepassword
+export type ApplyForDriveRoute = typeof applyfordrive
