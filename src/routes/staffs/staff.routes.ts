@@ -115,7 +115,7 @@ export const createjobalertroute = createRoute({
 });
 
 export const jobIdSchema = z.object({
-  id: number()
+  id: z.string()
 })
 
 //delete job
@@ -128,7 +128,7 @@ export const removejobroute = createRoute({
   },
 
   responses: {
-    [HttpStatusCodes.NO_CONTENT]: {
+    [HttpStatusCodes.OK]: {
       description: "Job deleted",
     },
     [HttpStatusCodes.NOT_FOUND]: jsonContent(

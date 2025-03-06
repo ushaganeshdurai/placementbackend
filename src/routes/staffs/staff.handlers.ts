@@ -225,8 +225,8 @@ export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) =>
       const validJobs = await Promise.all(
         newJobs.map(async (job) => ({
           batch: job.batch,
-          jobDescription:job.jobDescription,
-          department:job.department,
+          jobDescription: job.jobDescription,
+          department: job.department,
           expiration: job.expiration, //format: mm/dd/yyyy, --:--:-- --
           companyName: job.companyName,
           driveDate: job.driveDate, //format: mm/dd/yyyy
@@ -255,16 +255,7 @@ export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
     const { id } = c.req.valid("param");
     const result = await db.delete(drive)
       .where(eq(drive.id, id));
-    if (result.length === 0) {
-      return c.json({
-        errors: [{
-          code: 'NOT_FOUND',
-          message: 'Job not found'
-        }]
-      }, HttpStatusCodes.NOT_FOUND);
-    }
-
-    return c.body(null, HttpStatusCodes.NO_CONTENT);
+    return c.body(null, HttpStatusCodes.OK);
 
   } catch (error) {
     console.error('Job deletion error:', error);
@@ -322,7 +313,7 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
       return c.json({ error: "Incorrect old password" }, 401);
     }
 
-    const hashedNewPassword = await bcrypt.hash(newPassword,10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
     await db
       .update(staff)
