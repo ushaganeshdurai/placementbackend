@@ -11,7 +11,7 @@ export const drive = pgTable('drive', {
     driveDate: date("drive_date"),
     expiration: timestamp({ withTimezone: true, mode: 'string' }),
     applicantList: uuid("applicant_list").array(),
-    department:text("department").array(),
+    department:text().array(),
     batch: text(),
 });
 

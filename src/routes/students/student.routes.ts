@@ -122,8 +122,6 @@ export const updatepassword = createRoute({
     middlewares: [supabaseMiddleware],
 });
 
-//TODO: apply for drive
-
 
 const driveIdSchema = z.object({
     id: z.number()

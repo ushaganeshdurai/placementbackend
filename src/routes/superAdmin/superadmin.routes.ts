@@ -6,6 +6,8 @@ import { notFoundSchema } from "@/lib/constants";
 import { loginSuperAdminSchema, selectSuperAdminSchema } from "@/db/schemas/superAdminSchema";
 import { insertStaffSchema, selectStaffSchema } from "@/db/schemas/staffSchema";
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
+import { jobIdSchema } from "../staffs/staff.routes";
+import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
 
 
 
@@ -113,10 +115,59 @@ export const removestaffroute = createRoute({
   },
 });
 
+//jobs:
 
-//students
+export const createjobroute = createRoute({
+  path: "/superadmin/createjobs",
+  method: "post",
+  request: {
+    body: jsonContentRequired(
+      z.array(insertDriveSchema),
+      "Add multiple drives",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.array(selectDriveSchema),
+      "Created many drives",
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(insertDriveSchema),
+      "The validation error(s)",
+    ),
+  },
+});
+
+
+export const removedriveroute = createRoute({
+  path: "/superadmin/job/{id}",
+  method: "delete",
+  request: {
+    params: jobIdSchema,
+  },
+
+  responses: {
+    [HttpStatusCodes.OK]: {
+      description: "Job deleted",
+    },
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "Job listing not found",
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(jobIdSchema),
+      "Invalid id error",
+    ),
+  },
+});
+
+
+
+
 export type LoginSuperAdmin = typeof loginAdmin
 export type GetOneRoute = typeof getOne;
 export type CreateStaffsRoute = typeof createstaffsroute;
 export type RemoveStaffRoute = typeof removestaffroute;
+export type RemoveDriveRoute = typeof removedriveroute
+export type CreateJobsRoute = typeof createjobroute
 

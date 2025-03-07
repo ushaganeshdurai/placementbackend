@@ -4,11 +4,12 @@ import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
 // import { superAdmin } from "@/db/schemas/superAdminSchema";
-import { superAdmin } from "drizzle/schema";
-import type { CreateStaffsRoute, GetOneRoute, LoginSuperAdmin, RemoveStaffRoute } from "./superadmin.routes";
+import { drive, superAdmin } from "drizzle/schema";
+import type { CreateJobsRoute, CreateStaffsRoute, GetOneRoute, LoginSuperAdmin, RemoveDriveRoute, RemoveStaffRoute } from "./superadmin.routes";
 import { staff, students } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
+import { CreateJobAlertRoute } from "../staffs/staff.routes";
 
 
 // login the admin
@@ -150,6 +151,31 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
   const { id } = c.req.valid("param");
 
   try {
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let userRole: string | null = null;
+    let userId: string | null = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken!, SECRET_KEY);
+      console.log("Decoded JWT:", decoded);
+      if (!decoded) throw new Error("Invalid session");
+
+      userRole = decoded.role as string;
+      userId = decoded.id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    if (!userId) {
+      return c.json({ error: "Super admin ID missing from token" }, 400);
+    }
+
     const result = await db.delete(staff)
       .where(eq(staff.staffId, id));
 
@@ -168,10 +194,115 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
 
     return c.json({
       errors: [{
-        path: ['param', 'id', 'staffId'],
+        path: ['param', 'id'],
         message: 'Invalid staff ID format'
       }]
     }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
   }
 };
 
+
+
+export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let userRole: string | null = null;
+    let userId: string | null = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken!, SECRET_KEY);
+      console.log("Decoded JWT:", decoded);
+      if (!decoded) throw new Error("Invalid session");
+
+      userRole = decoded.role as string;
+      userId = decoded.id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    if (!userId) {
+      return c.json({ error: "Super admin ID missing from token" }, 400);
+    }
+
+    const newJobs = c.req.valid("json");
+    if (!Array.isArray(newJobs)) {
+      return c.json([], HttpStatusCodes.OK);
+    }
+
+    if (userRole === "super_admin") {
+      const validJobs = await Promise.all(
+        newJobs.map(async (job) => ({
+          batch: job.batch!,
+          jobDescription: job.jobDescription!,
+          department: job.department,
+          expiration: job.expiration!, //format: mm/dd/yyyy, --:--:-- --
+          companyName: job.companyName!,
+          driveDate: job.driveDate!, //format: mm/dd/yyyy
+        }))
+      );
+
+      console.log("Super admin ID being used:", userId);
+
+      const insertedJobs = await db.insert(drive).values(validJobs).returning();
+      return c.json(insertedJobs, HttpStatusCodes.OK);
+    }
+
+    return c.json({ error: "Unauthorized" }, 403);
+  } catch (error) {
+    console.error("Students creation error:", error);
+    return c.json([], HttpStatusCodes.OK);
+  }
+};
+
+
+
+//Remove job
+
+export const removedrive: AppRouteHandler<RemoveDriveRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let userRole: string | null = null;
+    let userId: string | null = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken!, SECRET_KEY);
+      console.log("Decoded JWT:", decoded);
+      if (!decoded) throw new Error("Invalid session");
+
+      userRole = decoded.role as string;
+      userId = decoded.id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    if (!userId) {
+      return c.json({ error: "Super admin ID missing from token" }, 400);
+    }
+
+    const { id } = c.req.valid("param");
+    const result = await db.delete(drive)
+      .where(eq(drive.id, id));
+    return c.body("Job deleted successfully", HttpStatusCodes.OK);
+
+  } catch (error) {
+    console.error('Job deletion error:', error);
+    return c.json({
+      errors: [{
+        path: ['param', 'id'],
+        message: 'Invalid Job ID format'
+      }]
+    }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
+  }
+};

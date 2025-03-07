@@ -226,7 +226,6 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
 };
 
 
-//TODO: Apply for drive
 
 export const applyForDrive: AppRouteHandler<ApplyForDriveRoute> = async (c) => {
   try {
