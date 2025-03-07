@@ -3,8 +3,8 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-import type { ApplyForDriveRoute, CreateResumeRoute, GetOneRoute, LoginStudentRoute, UpdatePasswordRoute } from "./student.routes";
-import { students, applications } from "drizzle/schema";
+import type { ApplyForDriveRoute, CreateResumeRoute, DisplayDrivesRoute, GetOneRoute, LoginStudentRoute, UpdatePasswordRoute } from "./student.routes";
+import { students, applications, drive } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 
@@ -222,6 +222,53 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
   } catch (error) {
     console.error("Password update error:", error);
     return c.json({ error: "Something went wrong" }, 500);
+  }
+};
+
+
+//display drive details in students page
+
+export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
+  const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+  }
+
+  let studentId = null;
+  let userRole = null;
+
+  try {
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    const decoded = await verify(jwtToken!, SECRET_KEY);
+    if (!decoded) throw new Error("Invalid session");
+    studentId = decoded.student_id;
+    userRole = decoded.role;
+    console.log(jwtToken)
+  } catch (error) {
+    if (error === "TokenExpiredError") {
+      return c.json({ error: "Session expired", success: false }, 401);
+    }
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session", success: false }, 401);
+  }
+
+  if (userRole !== "student") {
+    return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+  }
+
+  try {
+    const drivesList = await db.select().from(drive).execute();
+    return c.json({
+      success: "Fetched all drives successfully",
+      studentId,
+      role: userRole,
+      drives_list: drivesList,
+    }, 200);
+
+  } catch (error) {
+    console.error("Database query error:", error);
+    return c.json({ error: "Failed to fetch data", success: false }, 500);
   }
 };
 

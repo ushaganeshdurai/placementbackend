@@ -9,5 +9,6 @@ const router = createRouter()
   .openapi(routes.createresume, handlers.resumedetails)
   .openapi(routes.updatepassword, handlers.updatepassword)
   .openapi(routes.applyfordrive, handlers.applyForDrive)
+  .openapi(routes.displayDrives,handlers.displayDrives)
 
 export default router;

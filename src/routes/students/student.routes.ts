@@ -5,6 +5,7 @@ import { createErrorSchema, IdUUIDParamsSchema } from "stoker/openapi/schemas";
 import { notFoundSchema } from "@/lib/constants";
 import { insertResumeSchema, loginStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
+import { selectDriveSchema } from "@/db/schemas/driveSchema";
 
 export const loginStudent = createRoute({
     path: "/student/login",
@@ -123,6 +124,29 @@ export const updatepassword = createRoute({
 });
 
 
+export const displayDrives = createRoute({
+    path: "/student/displaydrives",
+    method: "get",
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            selectDriveSchema,
+            "The requested drive details"
+        ),
+        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+            createErrorSchema(selectDriveSchema),
+            "Unauthorized access - Token required"
+        ),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(
+            notFoundSchema,
+            "Drive not found"
+        ),
+    },
+    middlewares: [supabaseMiddleware],
+});
+
+
+
+
 const driveIdSchema = z.object({
     id: z.number()
 });
@@ -157,3 +181,4 @@ export type GetOneRoute = typeof getOne;
 export type CreateResumeRoute = typeof createresume
 export type UpdatePasswordRoute = typeof updatepassword
 export type ApplyForDriveRoute = typeof applyfordrive
+export type DisplayDrivesRoute = typeof displayDrives

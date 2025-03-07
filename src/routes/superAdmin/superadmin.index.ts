@@ -10,5 +10,7 @@ const router = createRouter()
   .openapi(routes.removestaffroute,handlers.removeStaff)
   .openapi(routes.createjobroute,handlers.createjobs)
   .openapi(routes.removedriveroute,handlers.removedrive)
+  .openapi(routes.registeredstudents,handlers.registeredStudents)
+  .openapi(routes.bulkuploadstudents,handlers.bulkUploadStudents)
 
 export default router;

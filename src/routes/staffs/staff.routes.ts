@@ -8,6 +8,8 @@ import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSc
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
 import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
+import { createInsertSchema } from "drizzle-zod";
+import { students } from "drizzle/schema";
 
 
 
@@ -201,8 +203,32 @@ export const updatepassword = createRoute({
     middlewares: [supabaseMiddleware],
 });
 
+export const displayDrives = createRoute({
+    path: "/staff/displaydrives",
+    method: "get",
+    responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+            selectDriveSchema,
+            "The requested drive details"
+        ),
+        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+            createErrorSchema(selectDriveSchema),
+            "Unauthorized access - Token required"
+        ),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(
+            notFoundSchema,
+            "Drive not found"
+        ),
+        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+            createErrorSchema(IdParamsSchema),
+            "Invalid ID format"
+        ),
+    },
+    middlewares: [supabaseMiddleware],
+});
 
-//todo: see all the students those who have registered
+
+// see all the students those who have registered
 
 export const registeredstudents = createRoute({
   path: "/staff/registeredstudents",
@@ -228,6 +254,62 @@ export const registeredstudents = createRoute({
   middlewares: [supabaseMiddleware],
 });
 
+
+export const insertStudentsSchema = createInsertSchema(students)
+  .required({
+    email: true,
+    password: true,
+  })
+  .omit({
+    studentId: true,
+    userId: true,
+    department: true,
+    placedStatus: true,
+    staffId: true,
+    skillSet: true,
+    languagesKnown: true,
+    phoneNumber: true,
+    noOfArrears: true,
+    githubUrl: true,
+    linkedinUrl: true,
+    twelfthMark: true,
+    tenthMark: true,
+    cgpa: true,
+    name: true,
+    regNo: true,
+    rollNo: true,
+    year: true,
+  })
+  .extend({
+    staffEmail: z.string().email(),
+  });
+
+
+//bulk upload students
+export const bulkuploadstudents = createRoute({
+  path: "/staff/bulkuploadstudents",
+  method: "post",
+  request: {
+    body: jsonContentRequired(
+      z.array(insertStudentsSchema),
+      "Add multiple students",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.array(selectStudentSchema),
+      "Created many students",
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(insertStudentsSchema),
+      "The validation error(s)",
+    ),
+  },
+});
+
+
+
+
 export type LoginStaffRoute = typeof loginStaff
 export type GetOneRoute = typeof getOne;
 export type CreateStudentsRoute = typeof createstudentsroute;
@@ -236,3 +318,5 @@ export type CreateJobAlertRoute = typeof createjobalertroute
 export type RemoveJobRoute = typeof removejobroute
 export type UpdatePasswordRoute = typeof updatepassword
 export type RegisteredStudentsRoute = typeof registeredstudents
+export type DisplayDrivesRoute = typeof displayDrives
+export type BulkUploadStudentsRoute = typeof bulkuploadstudents

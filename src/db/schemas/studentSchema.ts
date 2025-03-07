@@ -42,6 +42,7 @@ export const insertStudentSchema = createInsertSchema(students).required({
   studentId: true,
   userId: true,
   department: true,
+  placedStatus:true,
   staffId: true,
   skillSet: true,
   languagesKnown: true,
