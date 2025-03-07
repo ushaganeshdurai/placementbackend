@@ -9,7 +9,6 @@ export const staff = pgTable('staff', {
   name: text('name').notNull(),
   userId: text('user_id').references(() => users.id),
   email: text('email_id').notNull(),
-  appliedStudentsEmailIds: text('applied_students_emailIds'),
   password: text('password'),
   department: text('department'),
 }, (staff) => ({
@@ -27,7 +26,6 @@ export const insertStaffSchema = createInsertSchema(staff).required({
   staffId: true,
   userId:true,
   department: true,
-   appliedStudentsEmailIds: true,
   name: true
 });
 

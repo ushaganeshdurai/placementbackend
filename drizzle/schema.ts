@@ -7,14 +7,12 @@ export const userRole = pgEnum("user_role", ['staff', 'student', 'super_admin'])
 
 
 export const drive = pgTable("drive", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "drive_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	companyName: varchar("company_name"),
 	jobDescription: text("job_description"),
 	driveDate: date("drive_date"),
 	expiration: timestamp({ withTimezone: true, mode: 'string' }),
-	applicantList: uuid("applicant_list").array(),
 	batch: varchar({ length: 4 }),
 	department: text().array(),
 });
@@ -83,7 +81,6 @@ export const staff = pgTable("staff", {
 	email: text().notNull(),
 	password: text(),
 	department: text(),
-	appliedStudentsEmailIds: text("applied_students_emailIds").array(),
 	userId: uuid("user_id"),
 }, (table) => [
 	foreignKey({
@@ -95,10 +92,8 @@ export const staff = pgTable("staff", {
 ]);
 
 export const applications = pgTable("applications", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity({ name: "applications_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
 	studentId: uuid("student_id").notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	driveId: bigint("drive_id", { mode: "number" }).notNull(),
 	appliedAt: timestamp("applied_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [

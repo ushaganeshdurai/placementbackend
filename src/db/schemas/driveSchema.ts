@@ -10,13 +10,10 @@ export const drive = pgTable('drive', {
     jobDescription: text("job_description"),
     driveDate: date("drive_date"),
     expiration: timestamp({ withTimezone: true, mode: 'string' }),
-    applicantList: uuid("applicant_list").array(),
     department:text().array(),
     batch: text(),
 });
 
-
-//TODO: can be deleted by either staff or super admin
 
 
 // Schema for selecting drive records
@@ -40,7 +37,6 @@ export const insertDriveSchema = createInsertSchema(drive).required({
       "companyName": "TechCorp Ltd.",
       "driveDate": "12/20/2025",
       "jobDescription": "Software Developer role for fresh graduates.",
-      "applicantList": "[John Doe, Jane Smith]",
       "department": ["Computer Science", "Information Technology"]
     },
  */
