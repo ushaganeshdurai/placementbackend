@@ -1,13 +1,14 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import { jsonContent, jsonContentRequired } from "stoker/openapi/helpers";
-import { createErrorSchema, IdUUIDParamsSchema } from "stoker/openapi/schemas";
+import { createErrorSchema, IdParamsSchema, IdUUIDParamsSchema } from "stoker/openapi/schemas";
 import { notFoundSchema } from "@/lib/constants";
 import { loginSuperAdminSchema, selectSuperAdminSchema } from "@/db/schemas/superAdminSchema";
 import { insertStaffSchema, selectStaffSchema } from "@/db/schemas/staffSchema";
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 import { jobIdSchema } from "../staffs/staff.routes";
 import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
+import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
 
 
 
@@ -163,6 +164,30 @@ export const removedriveroute = createRoute({
 
 
 
+export const registeredstudents = createRoute({
+  path: "/superadmin/registeredstudents",
+  method: "get",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      selectApplicationsSchema,
+      "The requested applicant list"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createErrorSchema(selectApplicationsSchema),
+      "Unauthorized access - Token required"
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "Registered students not found"
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(IdParamsSchema),
+      "Invalid ID format"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
+
 
 export type LoginSuperAdmin = typeof loginAdmin
 export type GetOneRoute = typeof getOne;
@@ -170,4 +195,5 @@ export type CreateStaffsRoute = typeof createstaffsroute;
 export type RemoveStaffRoute = typeof removestaffroute;
 export type RemoveDriveRoute = typeof removedriveroute
 export type CreateJobsRoute = typeof createjobroute
+export type RegisteredStudentsRoute = typeof registeredstudents
 

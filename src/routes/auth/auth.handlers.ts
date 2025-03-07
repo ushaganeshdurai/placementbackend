@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import { setCookie } from "hono/cookie";

@@ -3,13 +3,11 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-// import { superAdmin } from "@/db/schemas/superAdminSchema";
-import { drive, superAdmin } from "drizzle/schema";
-import type { CreateJobsRoute, CreateStaffsRoute, GetOneRoute, LoginSuperAdmin, RemoveDriveRoute, RemoveStaffRoute } from "./superadmin.routes";
-import { staff, students } from "drizzle/schema";
+import { applications, drive, superAdmin } from "drizzle/schema";
+import type { CreateJobsRoute, CreateStaffsRoute, GetOneRoute, LoginSuperAdmin, RegisteredStudentsRoute, RemoveDriveRoute, RemoveStaffRoute } from "./superadmin.routes";
+import { staff } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
-import { CreateJobAlertRoute } from "../staffs/staff.routes";
 
 
 // login the admin
@@ -304,5 +302,51 @@ export const removedrive: AppRouteHandler<RemoveDriveRoute> = async (c) => {
         message: 'Invalid Job ID format'
       }]
     }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
+  }
+};
+
+//get the registered students
+
+export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
+  const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+  }
+
+  let userId = null;
+  let userRole = null;
+
+  try {
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    const decoded = await verify(jwtToken!, SECRET_KEY);
+    if (!decoded) throw new Error("Invalid session");
+    userId = decoded.id;
+    userRole = decoded.role;
+    console.log(jwtToken)
+  } catch (error) {
+    if (error === "TokenExpiredError") {
+      return c.json({ error: "Session expired", success: false }, 401);
+    }
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session", success: false }, 401);
+  }
+
+  if (userRole !== "super_admin") {
+    return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+  }
+
+  try {
+    const registeredStudentsList = await db.select().from(applications).execute();
+    return c.json({
+      success: "Fetched applications successfully",
+      userId,
+      role: userRole,
+      registered_students: registeredStudentsList,
+    }, 200);
+
+  } catch (error) {
+    console.error("Database query error:", error);
+    return c.json({ error: "Failed to fetch data", success: false }, 500);
   }
 };

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, unique, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./users";

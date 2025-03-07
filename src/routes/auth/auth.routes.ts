@@ -1,16 +1,8 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import * as HttpStatusCodes from "stoker/http-status-codes";
-import { jsonContent, jsonContentRequired} from "stoker/openapi/helpers";
-import { createErrorSchema, IdUUIDParamsSchema, createMessageObjectSchema } from "stoker/openapi/schemas";
-import { notFoundSchema } from "@/lib/constants";
-import { insertSuperAdminSchema, loginSuperAdminSchema, selectSuperAdminSchema } from "@/db/schemas/superAdminSchema";
-import { insertStaffSchema, selectStaffSchema } from "@/db/schemas/staffSchema";
-import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
-import { jwt } from "hono/jwt";
+import { jsonContent} from "stoker/openapi/helpers";
+import { createMessageObjectSchema } from "stoker/openapi/schemas";
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
-
-
-
 
 
 //get super admin data

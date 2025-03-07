@@ -1,13 +1,13 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import { jsonContent, jsonContentRequired } from "stoker/openapi/helpers";
-import { createErrorSchema, IdUUIDParamsSchema } from "stoker/openapi/schemas";
+import { createErrorSchema, IdParamsSchema, IdUUIDParamsSchema } from "stoker/openapi/schemas";
 import { notFoundSchema } from "@/lib/constants";
 import { loginStaffSchema, selectStaffSchema } from "@/db/schemas/staffSchema";
 import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
-import { number } from "zod";
+import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
 
 
 
@@ -202,6 +202,32 @@ export const updatepassword = createRoute({
 });
 
 
+//todo: see all the students those who have registered
+
+export const registeredstudents = createRoute({
+  path: "/staff/registeredstudents",
+  method: "get",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      selectApplicationsSchema,
+      "The requested applicant list"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createErrorSchema(selectApplicationsSchema),
+      "Unauthorized access - Token required"
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "No registrations"
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(IdParamsSchema),
+      "Invalid ID format"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
+
 export type LoginStaffRoute = typeof loginStaff
 export type GetOneRoute = typeof getOne;
 export type CreateStudentsRoute = typeof createstudentsroute;
@@ -209,3 +235,4 @@ export type RemoveStudentRoute = typeof removestudentroute;
 export type CreateJobAlertRoute = typeof createjobalertroute
 export type RemoveJobRoute = typeof removejobroute
 export type UpdatePasswordRoute = typeof updatepassword
+export type RegisteredStudentsRoute = typeof registeredstudents

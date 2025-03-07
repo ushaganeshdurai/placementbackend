@@ -1,11 +1,7 @@
 import db from '@/db'
-import { staff } from '@/db/schemas/staffSchema'
 import { AppBindings } from '@/lib/types'
 import { createServerClient, parseCookieHeader } from '@supabase/ssr'
-import { SupabaseClient } from '@supabase/supabase-js'
-import { eq } from 'drizzle-orm'
-import { profiles } from 'drizzle/schema'
-import type { Context, MiddlewareHandler } from 'hono'
+import type { Context } from 'hono'
 import { env } from 'hono/adapter'
 import { setCookie } from 'hono/cookie'
 import { createMiddleware } from "hono/factory"
