@@ -337,7 +337,19 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
   }
 
   try {
-    const registeredStudentsList = await db.select().from(applications).execute();
+      const registeredStudentsList = await db.select({
+          applicationId: applications.id,
+          studentName: students.name,
+          email:students.email,
+          arrears:students.noOfArrears,
+          cgpa:students.cgpa,
+          companyName: drive.companyName,
+          appliedAt: applications.appliedAt
+        })
+        .from(applications)
+        .innerJoin(students, eq(applications.studentId, students.studentId))
+        .innerJoin(drive, eq(applications.driveId, drive.id))
+        .execute();
     return c.json({
       success: "Fetched applications successfully",
       userId,

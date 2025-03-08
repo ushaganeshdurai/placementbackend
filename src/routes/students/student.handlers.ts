@@ -142,8 +142,8 @@ export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
         linkedinUrl: resume.linkedinUrl,
         tengthMark: resume.tenthMark,
         cgpa: resume.cgpa,
-        year: resume.year,
-        department: resume.department,
+        batch: resume.batch, //2021-2025
+        department: resume.department,//CSE,IT,MECH
         twelfthMark: resume.twelfthMark
       };
 
