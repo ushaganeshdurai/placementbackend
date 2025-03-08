@@ -77,21 +77,7 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
 
   let table: string | null = null;
   let idColumn: string | null = null;
-  const nameRegex = /^(?<firstName>\w+)\s+(?<lastName>\w+)\s+(?<initial>\w)\s+(?<department>(civil|cse|aids|csbs|ece|eee|mech|it))\s+(?<batch>\d{4}-\d{4})$/i;
-  const nameMatch = nameRegex.exec(user.user_metadata.full_name);
-
-  if (!nameMatch || !nameMatch.groups) {
-    return c.json({ message: "Invalid name format" }, HttpStatusCodes.BAD_REQUEST);
-  }
-
-  const { firstName, lastName, initial } = nameMatch.groups;
-  const fullName = `${firstName} ${lastName} ${initial}`;
-
-  let data: Record<string, any> = {
-    user_id: user.id,
-    name: fullName,
-    email: user.email
-  };
+  let data: Record<string, any> = { user_id: user.id, name: user.user_metadata.full_name, email: user.email };
 
   if (userRole === "student") {
     table = "students";

@@ -343,6 +343,11 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
           email:students.email,
           arrears:students.noOfArrears,
           cgpa:students.cgpa,
+          batch:students.batch,
+          department:students.department,
+          placedStatus:students.placedStatus,
+          regNo:students.regNo,
+          rollNo:students.rollNo,
           companyName: drive.companyName,
           appliedAt: applications.appliedAt
         })
