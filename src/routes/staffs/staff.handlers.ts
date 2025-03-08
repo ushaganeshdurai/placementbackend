@@ -308,6 +308,7 @@ export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) =>
           batch: job.batch,
           jobDescription: job.jobDescription,
           department: job.department,
+          driveLink:job.driveLink,
           expiration: job.expiration, //format: mm/dd/yyyy, --:--:-- --
           companyName: job.companyName,
           driveDate: job.driveDate, //format: mm/dd/yyyy
