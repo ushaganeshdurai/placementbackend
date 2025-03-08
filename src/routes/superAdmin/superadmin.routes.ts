@@ -9,6 +9,9 @@ import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 import { jobIdSchema } from "../staffs/staff.routes";
 import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
 import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
+import { students } from "drizzle/schema";
+import { createInsertSchema } from "drizzle-zod";
+import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
 
 
 
@@ -116,6 +119,62 @@ export const removestaffroute = createRoute({
   },
 });
 
+export const insertStudentsSchema = createInsertSchema(students)
+  .required({
+    email: true,
+    password: true,
+  })
+  .omit({
+    studentId: true,
+    userId: true,
+    department: true,
+    placedStatus: true,
+    skillSet: true,
+    languagesKnown: true,
+    phoneNumber: true,
+    noOfArrears: true,
+    staffId: true,
+    githubUrl: true,
+    linkedinUrl: true,
+    twelfthMark: true,
+    tenthMark: true,
+    cgpa: true,
+    name: true,
+    regNo: true,
+    rollNo: true,
+    year: true,
+  }) .extend({
+    staffEmail: z.string().email(),
+  });
+
+
+
+
+//bulk upload students
+export const bulkuploadstudents = createRoute({
+  path: "/superadmin/bulkuploadstudents",
+  method: "post",
+  request: {
+    body: jsonContentRequired(
+      z.array(insertStudentsSchema),
+      "Add multiple students",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.array(selectStudentSchema),
+      "Created many students",
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(insertStudentsSchema),
+      "The validation error(s)",
+    ),
+  },
+});
+
+
+
+
 //jobs:
 
 export const createjobroute = createRoute({
@@ -189,6 +248,60 @@ export const registeredstudents = createRoute({
 });
 
 
+
+
+
+// superadmin.routes.ts
+
+const applicationSchema = z.object({
+  id: z.number(),
+  studentId: z.string().uuid(),
+  driveId: z.number(),
+  appliedAt: z.string(),
+  student: z.object({
+    name: z.string().nullable(),
+    email: z.string(),
+    studentId: z.string().uuid(),
+    phoneNumber: z.number().nullable(),
+    batch: z.number().nullable(), // Assuming year as batch
+    regNo: z.string().nullable(),
+    department: z.string().nullable(),
+    rollNo: z.number().nullable(),
+    placedStatus: z.enum(["yes", "no"]).nullable(),
+    cgpa: z.number().nullable(),
+  }),
+});
+
+const jobSchema = z.object({
+  id: z.number(),
+  createdAt: z.string(),
+  companyName: z.string(),
+  jobDescription: z.string(),
+  driveDate: z.string(),
+  expiration: z.string(),
+  batch: z.string(),
+  department: z.array(z.string()),
+  applications: z.array(applicationSchema),
+});
+
+export const getJobs = createRoute({
+  path: "/superadmin/jobs",
+  method: "get",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({ success: z.boolean(), jobs: z.array(jobSchema) }),
+      "List of all jobs with registered students"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createErrorSchema(z.object({})),
+      "Unauthorized access"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
+
+
+export type GetJobsRoute = typeof getJobs;
 export type LoginSuperAdmin = typeof loginAdmin
 export type GetOneRoute = typeof getOne;
 export type CreateStaffsRoute = typeof createstaffsroute;
@@ -196,4 +309,4 @@ export type RemoveStaffRoute = typeof removestaffroute;
 export type RemoveDriveRoute = typeof removedriveroute
 export type CreateJobsRoute = typeof createjobroute
 export type RegisteredStudentsRoute = typeof registeredstudents
-
+export type BulkUploadStudentsRoute = typeof bulkuploadstudents

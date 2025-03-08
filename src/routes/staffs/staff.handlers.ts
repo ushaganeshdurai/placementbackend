@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-import type { CreateJobAlertRoute, CreateStudentsRoute, GetOneRoute, LoginStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
+import type { BulkUploadStudentsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, GetOneRoute, LoginStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
 import { applications, drive, staff, students } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
@@ -141,17 +141,24 @@ export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) =>
 
     if (userRole === "staff") {
       const validStudents = await Promise.all(
-        newStudents.map(async (student) => ({
-          email: student.email,
-          staffId: staffId,
-          password: await bcrypt.hash(student.password!, 10),
-        }))
+        newStudents
+          .filter((student) => student.email.endsWith("@saec.ac.in")) // Check email suffix
+          .map(async (student) => ({
+            email: student.email,
+            staffId: staffId,
+            password: await bcrypt.hash(student.password!, 10),
+          }))
       );
-
+    
+      if (validStudents.length === 0) {
+        return c.json({ error: "No valid students found with @saec.ac.in domain", success: false }, 400);
+      }
+    
       console.log("Staff ID being used:", staffId);
       const insertedStudents = await db.insert(students).values(validStudents).returning();
       return c.json(insertedStudents, HttpStatusCodes.OK);
     }
+    
 
     return c.json({ error: "Unauthorized" }, 403);
   } catch (error) {
@@ -160,7 +167,82 @@ export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) =>
   }
 };
 
-// Remove Student
+//bulk upload students
+
+export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
+
+  type StudentData = {
+    staffEmail: string; 
+    email: string;
+    password: string;
+  };
+  
+    try {
+      const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+      if (!jwtToken) {
+        return c.json({ error: "Unauthorized: No session found" }, 401);
+      }
+  
+      let userRole = null;
+      try {
+        const SECRET_KEY = process.env.SECRET_KEY!;
+        const decoded = await verify(jwtToken, SECRET_KEY);
+        if (!decoded) throw new Error("Invalid session");
+        userRole = decoded.role;
+      } catch (error) {
+        console.error("Session Verification Error:", error);
+        return c.json({ error: "Invalid session" }, 401);
+      }
+  
+      if (userRole !== "staff") {
+        return c.json({ error: "Unauthorized" }, 403);
+      }
+  
+      const studentData: StudentData[] = c.req.valid("json").map((student: any) => ({
+        ...student,
+        password: student.password || ""
+      }));
+      if (!Array.isArray(studentData) || studentData.length === 0) {
+        return c.json({ error: "No valid students found" }, 400);
+      }
+  
+      if (studentData.some(s => !s.staffEmail || !s.email || !s.password)) {
+        return c.json({ error: "Missing required fields: staffEmail, email, or password" }, 400);
+      }
+  
+      const staffEmails = [...new Set(studentData.map(s => s.staffEmail))];
+  
+      const staffRecords = await db
+        .select({ email: staff.email, id: staff.staffId })
+        .from(staff)
+        .where(inArray(staff.email, staffEmails));
+  
+      const staffEmailToId = Object.fromEntries(staffRecords.map(s => [s.email, s.id]));
+  
+      const invalidEmails = staffEmails.filter(email => !staffEmailToId[email]);
+      if (invalidEmails.length > 0) {
+        return c.json({ error: "Invalid staff emails", emails: invalidEmails }, 400);
+      }
+  
+      const validStudents = studentData.map(({ staffEmail, email, password }) => ({
+        email,
+        password: bcrypt.hashSync(password, 10),
+        staffId: staffEmailToId[staffEmail], 
+      }));
+  
+      const insertedStudents = await db.insert(students).values(validStudents).returning();
+  
+      return c.json(insertedStudents, 200);
+    } catch (error) {
+      console.error("Bulk student upload error:", error);
+      return c.json({ error: "Something went wrong" }, 500);
+    }
+  };
+  
+
+
+
+//Remove Student
 export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
   try {
     const { id } = c.req.valid("param");
@@ -334,6 +416,51 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
   } catch (error) {
     console.error("Password update error:", error);
     return c.json({ error: "Something went wrong", success: false }, 500);
+  }
+};
+
+
+export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
+  const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+  }
+
+  let staffId = null;
+  let userRole = null;
+
+  try {
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    const decoded = await verify(jwtToken!, SECRET_KEY);
+    if (!decoded) throw new Error("Invalid session");
+    staffId = decoded.staff_id;
+    userRole = decoded.role;
+    console.log(jwtToken)
+  } catch (error) {
+    if (error === "TokenExpiredError") {
+      return c.json({ error: "Session expired", success: false }, 401);
+    }
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session", success: false }, 401);
+  }
+
+  if (userRole !== "staff") {
+    return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+  }
+
+  try {
+    const drivesList = await db.select().from(drive).execute();
+    return c.json({
+      success: "Fetched all drives successfully",
+      staffId,
+      role: userRole,
+      drives_list: drivesList,
+    }, 200);
+
+  } catch (error) {
+    console.error("Database query error:", error);
+    return c.json({ error: "Failed to fetch data", success: false }, 500);
   }
 };
 

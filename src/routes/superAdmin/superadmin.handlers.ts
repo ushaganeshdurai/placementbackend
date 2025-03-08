@@ -1,10 +1,10 @@
-import { eq, inArray } from "drizzle-orm"; // Add inArray
+import { eq, inArray } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-import { applications, drive, superAdmin } from "drizzle/schema";
-import type { CreateJobsRoute, CreateStaffsRoute, GetOneRoute, LoginSuperAdmin, RegisteredStudentsRoute, RemoveDriveRoute, RemoveStaffRoute } from "./superadmin.routes";
+import { applications, drive, students, superAdmin } from "drizzle/schema";
+import type { BulkUploadStudentsRoute, CreateJobsRoute, CreateStaffsRoute, GetOneRoute, LoginSuperAdmin, RegisteredStudentsRoute, RemoveDriveRoute, RemoveStaffRoute } from "./superadmin.routes";
 import { staff } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
@@ -45,6 +45,7 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
 };
 
 // Get Super Admin Dashboard Data
+// In superadmin.handlers.ts, update getOne:
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
 
@@ -54,6 +55,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 
   let userId = null;
   let userRole = null;
+  let email = null;
 
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
@@ -61,6 +63,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     if (!decoded) throw new Error("Invalid session");
     userId = decoded.id;
     userRole = decoded.role;
+    email = decoded.email; // Get email from token
     console.log('JWT Token:', jwtToken);
   } catch (error) {
     if (error === "TokenExpiredError") {
@@ -88,6 +91,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       success: true,
       userId,
       role: userRole,
+      email, // Include email in response
       staff: staffList,
     }, 200);
   } catch (error) {
@@ -95,7 +99,6 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     return c.json({ error: "Failed to fetch data" }, 500);
   }
 };
-
 // Add Staff
 export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
   try {
@@ -350,5 +353,183 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
   } catch (error) {
     console.error("Database query error:", error);
     return c.json({ error: "Failed to fetch data", success: false }, 500);
+  }
+};
+
+
+//bulk add students
+
+export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
+
+  type StudentData = {
+    staffEmail: string; 
+    email: string;
+    password: string;
+  };
+  
+    try {
+      const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+      if (!jwtToken) {
+        return c.json({ error: "Unauthorized: No session found" }, 401);
+      }
+  
+      let userRole = null;
+      try {
+        const SECRET_KEY = process.env.SECRET_KEY!;
+        const decoded = await verify(jwtToken, SECRET_KEY);
+        if (!decoded) throw new Error("Invalid session");
+        userRole = decoded.role;
+      } catch (error) {
+        console.error("Session Verification Error:", error);
+        return c.json({ error: "Invalid session" }, 401);
+      }
+  
+      if (userRole !== "super_admin") {
+        return c.json({ error: "Unauthorized" }, 403);
+      }
+  
+      const studentData: StudentData[] = c.req.valid("json").map((student: any) => ({
+        ...student,
+        password: student.password || ""
+      }));
+      if (!Array.isArray(studentData) || studentData.length === 0) {
+        return c.json({ error: "No valid students found" }, 400);
+      }
+  
+      if (studentData.some(s => !s.staffEmail || !s.email || !s.password)) {
+        return c.json({ error: "Missing required fields: staffEmail, email, or password" }, 400);
+      }
+  
+      const staffEmails = [...new Set(studentData.map(s => s.staffEmail))];
+  
+      const staffRecords = await db
+        .select({ email: staff.email, id: staff.staffId })
+        .from(staff)
+        .where(inArray(staff.email, staffEmails));
+  
+      const staffEmailToId = Object.fromEntries(staffRecords.map(s => [s.email, s.id]));
+  
+      const invalidEmails = staffEmails.filter(email => !staffEmailToId[email]);
+      if (invalidEmails.length > 0) {
+        return c.json({ error: "Invalid staff emails", emails: invalidEmails }, 400);
+      }
+  
+      const validStudents = studentData.map(({ staffEmail, email, password }) => ({
+        email,
+        password: bcrypt.hashSync(password, 10),
+        staffId: staffEmailToId[staffEmail], 
+      }));
+  
+      const insertedStudents = await db.insert(students).values(validStudents).returning();
+  
+      return c.json(insertedStudents, 200);
+    } catch (error) {
+      console.error("Bulk student upload error:", error);
+      return c.json({ error: "Something went wrong" }, 500);
+    }
+  };
+  
+
+
+
+
+
+
+
+export const getJobs: AppRouteHandler<GetJobsRoute> = async (c) => {
+  const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found" }, 401);
+  }
+
+  const SECRET_KEY = process.env.SECRET_KEY;
+  if (!SECRET_KEY) {
+    console.error("SECRET_KEY is not defined in environment variables");
+    return c.json({ error: "Server configuration error" }, 500);
+  }
+
+  try {
+    const decoded = await verify(jwtToken, SECRET_KEY);
+    if (!decoded || decoded.role !== "super_admin") {
+      return c.json({ error: "Unauthorized: Insufficient role" }, 403);
+    }
+
+    // Fetch jobs with applications and extended student details
+    const jobData = await db
+      .select({
+        driveId: drive.id,
+        createdAt: drive.createdAt,
+        companyName: drive.companyName,
+        jobDescription: drive.jobDescription,
+        driveDate: drive.driveDate,
+        expiration: drive.expiration,
+        batch: drive.batch,
+        department: drive.department,
+        applicationId: applications.id,
+        studentId: applications.studentId,
+        appliedAt: applications.appliedAt,
+        studentName: students.name,
+        studentEmail: students.email,
+        studentStudentId: students.studentId,
+        studentPhoneNumber: students.phoneNumber,
+        studentBatch: students.year, // Assuming 'year' maps to student batch
+        studentRegNo: students.regNo,
+        studentDepartment: students.department,
+        studentRollNo: students.rollNo,
+        studentPlacedStatus: students.placedStatus,
+        studentCgpa: students.cgpa,
+      })
+      .from(drive)
+      .leftJoin(applications, eq(drive.id, applications.driveId))
+      .leftJoin(students, eq(applications.studentId, students.studentId))
+      .execute();
+
+    console.log("Raw job data from DB:", jobData); // Debug raw output
+
+    // Group applications by job
+    const jobMap = new Map();
+    jobData.forEach((row) => {
+      if (!jobMap.has(row.driveId)) {
+        jobMap.set(row.driveId, {
+          id: row.driveId,
+          createdAt: row.createdAt,
+          companyName: row.companyName,
+          jobDescription: row.jobDescription,
+          driveDate: row.driveDate,
+          expiration: row.expiration,
+          batch: row.batch,
+          department: row.department,
+          applications: [],
+        });
+      }
+      if (row.studentId) {
+        jobMap.get(row.driveId).applications.push({
+          id: row.applicationId,
+          studentId: row.studentId,
+          driveId: row.driveId,
+          appliedAt: row.appliedAt,
+          student: {
+            name: row.studentName,
+            email: row.studentEmail,
+            studentId: row.studentStudentId,
+            phoneNumber: row.studentPhoneNumber,
+            batch: row.studentBatch, // Mapping 'year' to batch
+            regNo: row.studentRegNo,
+            department: row.studentDepartment,
+            rollNo: row.studentRollNo,
+            placedStatus: row.studentPlacedStatus,
+            cgpa: row.studentCgpa,
+          },
+        });
+      }
+    });
+
+    const jobs = Array.from(jobMap.values());
+    console.log("Processed jobs with applications:", jobs); // Debug final output
+
+    return c.json({ success: true, jobs }, 200);
+  } catch (error) {
+    console.error("Detailed error fetching jobs:", error.stack || error.message);
+    return c.json({ error: "Failed to fetch jobs", details: error.message }, 500);
   }
 };
