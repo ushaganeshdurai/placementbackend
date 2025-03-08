@@ -2,9 +2,9 @@ import { eq } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
-import bcrypt from "bcryptjs";
-import type { CreateJobAlertRoute, CreateStudentsRoute, GetOneRoute, LoginStaffRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
-import { drive, staff, students } from "drizzle/schema";
+import bcrypt from 'bcryptjs'
+import type { CreateJobAlertRoute, CreateStudentsRoute, GetOneRoute, LoginStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
+import { applications, drive, staff, students } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 
@@ -283,7 +283,7 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
   try {
     const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
     if (!jwtToken) {
-      return c.json({ error: "Unauthorized: No session found" }, 401);
+      return c.json({ error: "Unauthorized: No session found", success: false }, 401);
     }
 
     let staffId: string | null = null;
@@ -295,11 +295,11 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
       console.log("Decoded JWT:", decoded);
     } catch (error) {
       console.error("Session Verification Error:", error);
-      return c.json({ error: "Invalid session" }, 401);
+      return c.json({ error: "Invalid session", success: false }, 401);
     }
 
     if (!staffId) {
-      return c.json({ error: "Staff ID missing from token" }, 400);
+      return c.json({ error: "Staff ID missing from token", success: false }, 400);
     }
 
     const { oldPassword, newPassword } = c.req.valid("json");
@@ -320,7 +320,7 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
     console.log("Old password valid:", passwordMatches);
 
     if (!passwordMatches) {
-      return c.json({ error: "Incorrect old password" }, 401);
+      return c.json({ error: "Incorrect old password", success: false }, 401);
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
@@ -330,9 +330,56 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
       .set({ password: hashedNewPassword })
       .where(eq(staff.staffId, staffId));
 
-    return c.json({ message: "Password updated successfully" }, HttpStatusCodes.OK);
+    return c.json({ message: "Password updated successfully", success: true }, HttpStatusCodes.OK);
   } catch (error) {
     console.error("Password update error:", error);
-    return c.json({ error: "Something went wrong" }, 500);
+    return c.json({ error: "Something went wrong", success: false }, 500);
+  }
+};
+
+
+//get the registered students
+
+export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
+  const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+  }
+
+  let staffId = null;
+  let userRole = null;
+
+  try {
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    const decoded = await verify(jwtToken!, SECRET_KEY);
+    if (!decoded) throw new Error("Invalid session");
+    staffId = decoded.staff_id;
+    userRole = decoded.role;
+    console.log(jwtToken)
+  } catch (error) {
+    if (error === "TokenExpiredError") {
+      return c.json({ error: "Session expired", success: false }, 401);
+    }
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session", success: false }, 401);
+  }
+
+  if (userRole !== "staff") {
+    return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+  }
+
+  try {
+    const registeredStudentsList = await db.select().from(applications).execute();
+    return c.json({
+      success: "Fetched applications successfully",
+      staffId,
+      role: userRole,
+      registered_students: registeredStudentsList,
+    }, 200);
+
+  } catch (error) {
+    console.error("Database query error:", error);
+    return c.json({ error: "Failed to fetch data", success: false }, 500);
   }
 };

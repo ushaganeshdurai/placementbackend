@@ -4,13 +4,14 @@ import { z } from "zod";
 import { staff } from "./staffSchema";
 
 export const applied_or_not = pgEnum("applied_or_not", ['yes', 'no', 'partial'])
+export const placed_or_not = pgEnum("placed_or_not", ['yes', 'no'])
 
 export const students = pgTable('students', {
   staffId: uuid('staff_id').references(() => staff.staffId).notNull(),
   studentId: uuid('student_id').defaultRandom().primaryKey(),
   password: text('password'),
   userId: text('user_id'),
-  // placedStatus:text("placed_status"),
+  placedStatus: placed_or_not("placed_status"),
   email: text('email_id').notNull(),
   skillSet: text('skill_set'),
   phoneNumber: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "ph_no_seq", minValue: 1111111111, maxValue: 9999999999, cache: 1 }),
@@ -22,7 +23,6 @@ export const students = pgTable('students', {
   year: integer('year'),
   linkedinUrl: text('linkedin_url'),
   githubUrl: text('github_url'),
-  appliedOrNot: applied_or_not("applied_or_not"),
   regNo: text('reg_no').unique(),
   rollNo: integer('roll_no').unique(),
   department: text('department'),
@@ -46,7 +46,6 @@ export const insertStudentSchema = createInsertSchema(students).required({
   skillSet: true,
   languagesKnown: true,
   phoneNumber: true,
-  appliedOrNot: true,
   noOfArrears: true,
   githubUrl: true,
   linkedinUrl: true,
@@ -79,7 +78,7 @@ export const insertResumeSchema = createInsertSchema(students).required({
 }).omit({
   regNo: true, name: true,
   rollNo: true,
-  email: true, password: true, staffId: true, studentId: true, userId: true, appliedOrNot: true,
+  email: true, password: true, staffId: true, studentId: true, userId: true, 
 })
 
 

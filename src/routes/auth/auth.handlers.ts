@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import { setCookie, getCookie } from "hono/cookie";
@@ -6,6 +5,8 @@ import { sign, verify } from 'hono/jwt';
 import { OAuthRoute, OAuthSuccessRoute, OAuthStudentRoute, OAuthStaffRoute, SessionRoute } from "./auth.routes";
 import db from "@/db";
 import { staff, students, superAdmin } from "drizzle/schema";
+import { eq } from "drizzle-orm"; // Add this import
+
 
 type UserRoles = "student" | "admin" | "staff" | "super_admin";
 

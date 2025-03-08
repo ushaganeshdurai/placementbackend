@@ -1,10 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-import type { CreateResumeRoute, GetOneRoute, LoginStudentRoute, UpdatePasswordRoute } from "./student.routes";
-import { students } from "drizzle/schema";
+import type { ApplyForDriveRoute, CreateResumeRoute, GetOneRoute, LoginStudentRoute, UpdatePasswordRoute } from "./student.routes";
+import { students, applications } from "drizzle/schema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 
@@ -172,11 +172,6 @@ export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
 
 
 
-
-
-//Toodo:udpate pasowrd
-
-
 export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {
   try {
     // Get JWT Token from cookies
@@ -232,5 +227,65 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
   } catch (error) {
     console.error("Password update error:", error);
     return c.json({ error: "Something went wrong" }, 500);
+  }
+};
+
+
+
+export const applyForDrive: AppRouteHandler<ApplyForDriveRoute> = async (c) => {
+  try {
+    // Extract JWT token
+    const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, HttpStatusCodes.UNAUTHORIZED);
+    }
+
+    let studentId: string | null = null;
+    const SECRET_KEY = process.env.SECRET_KEY!;
+
+    // Verify JWT
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded) throw new Error("Invalid session");
+
+      studentId = decoded.student_id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
+    }
+
+    if (!studentId) {
+      return c.json({ error: "Student ID missing from token" }, HttpStatusCodes.BAD_REQUEST);
+    }
+
+    // Extract driveId from request body
+    const { id } = c.req.valid("json");
+    if (!id) {
+      return c.json({ error: "Missing drive ID" }, HttpStatusCodes.BAD_REQUEST);
+    }
+
+    // Check if student has already applied
+    const existingApplication = await db
+      .select()
+      .from(applications)
+      .where(and(eq(applications.studentId, studentId), eq(applications.driveId, id)))
+      .limit(1)
+      .execute();
+
+    if (existingApplication.length > 0) {
+      return c.json({ message: "You have already applied for this drive" }, HttpStatusCodes.OK);
+    }
+
+    // Insert new application with appliedAt timestamp
+    await db.insert(applications).values({
+      studentId,
+      driveId: id,
+      appliedAt: new Date().toISOString()
+    });
+
+    return c.json({ message: "Applied successfully" }, HttpStatusCodes.OK);
+  } catch (error) {
+    console.error("Application error:", error);
+    return c.json({ error: "Something went wrong" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 };

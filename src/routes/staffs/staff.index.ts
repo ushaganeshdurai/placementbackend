@@ -9,6 +9,7 @@ const router = createRouter()
   .openapi(routes.removestudentroute, handlers.removeStudent)
   .openapi(routes.updatepassword, handlers.updatepassword)
   .openapi(routes.createjobalertroute, handlers.createjobalert)
-  .openapi(routes.removejobroute, handlers.removejob);
+  .openapi(routes.removejobroute,handlers.removejob)
+  .openapi(routes.registeredstudents,handlers.registeredStudents)
 
 export default router;
