@@ -251,57 +251,125 @@ export const registeredstudents = createRoute({
 
 
 
+
+
+
+
+
+
+
+
+
+
 // superadmin.routes.ts
+// export const getJobsWithStudentsRoute = createRoute({
+//   path: "/superadmin/jobs-with-students",
+//   method: "get",
+//   responses: {
+//     [HttpStatusCodes.OK]: jsonContent(
+//       z.object({
+//         success: z.boolean(),
+//         jobs: z.array(
+//           z.object({
+//             jobId: z.number(),
+//             companyName: z.string(),
+//             jobDescription: z.string(),
+//             driveDate: z.string(),
+//             expiration: z.string(),
+//             batch: z.string(),
+//             department: z.array(z.string()),
+//             createdAt: z.string(),
+//             students: z.array(
+//               z.object({
+//                 applicationId: z.number(),
+//                 studentName: z.string(),
+//                 email: z.string(),
+//                 cgpa: z.number().optional(),
+//                 batch: z.string().optional(),
+//                 department: z.string().optional(),
+//                 appliedAt: z.string(),
+//               })
+//             ),
+//           })
+//         ),
+//       }),
+//       "List of jobs with registered students"
+//     ),
+//     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+//       createErrorSchema(z.any()),
+//       "Unauthorized access - Token required"
+//     ),
+//     [HttpStatusCodes.NOT_FOUND]: jsonContent(
+//       notFoundSchema,
+//       "Jobs not found"
+//     ),
+//   },
+//   middlewares: [supabaseMiddleware],
+// });
 
-const applicationSchema = z.object({
-  id: z.number(),
-  studentId: z.string().uuid(),
-  driveId: z.number(),
-  appliedAt: z.string(),
-  student: z.object({
-    name: z.string().nullable(),
-    email: z.string(),
-    studentId: z.string().uuid(),
-    phoneNumber: z.number().nullable(),
-    batch: z.number().nullable(), // Assuming year as batch
-    regNo: z.string().nullable(),
-    department: z.string().nullable(),
-    rollNo: z.number().nullable(),
-    placedStatus: z.enum(["yes", "no"]).nullable(),
-    cgpa: z.number().nullable(),
-  }),
-});
 
-const jobSchema = z.object({
-  id: z.number(),
-  createdAt: z.string(),
-  companyName: z.string(),
-  jobDescription: z.string(),
-  driveDate: z.string(),
-  expiration: z.string(),
-  batch: z.string(),
-  department: z.array(z.string()),
-  applications: z.array(applicationSchema),
-});
 
-export const getJobs = createRoute({
-  path: "/superadmin/jobs",
+
+
+
+
+
+
+
+
+
+
+export const getJobsWithStudentsRoute = createRoute({
+  path: "/superadmin/jobs-with-students",
   method: "get",
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      z.object({ success: z.boolean(), jobs: z.array(jobSchema) }),
-      "List of all jobs with registered students"
+      z.object({
+        success: z.boolean(),
+        jobs: z.array(
+          z.object({
+            jobId: z.number(),
+            companyName: z.string(),
+            jobDescription: z.string(),
+            driveDate: z.string(),
+            expiration: z.string(),
+            batch: z.string(),
+            department: z.array(z.string()),
+            createdAt: z.string(),
+            driveLink: z.string(), // Added driveLink
+            students: z.array(
+              z.object({
+                applicationId: z.number(),
+                studentName: z.string(),
+                email: z.string(),
+                cgpa: z.number().optional(),
+                batch: z.string().optional(),
+                department: z.string().optional(),
+                appliedAt: z.string(),
+              })
+            ),
+          })
+        ),
+      }),
+      "List of jobs with registered students"
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createErrorSchema(z.object({})),
-      "Unauthorized access"
+      createErrorSchema(z.any()),
+      "Unauthorized access - Token required"
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "Jobs not found"
     ),
   },
   middlewares: [supabaseMiddleware],
 });
 
 
-export type GetJobsRoute = typeof getJobs;
+
+export type GetJobsWithStudentsRoute = typeof getJobsWithStudentsRoute;
+
+// superadmin.routes.ts
 export type LoginSuperAdmin = typeof loginAdmin
 export type GetOneRoute = typeof getOne;
 export type CreateStaffsRoute = typeof createstaffsroute;

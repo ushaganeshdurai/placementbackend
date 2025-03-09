@@ -12,6 +12,6 @@ const router = createRouter()
   .openapi(routes.removedriveroute,handlers.removedrive)
   .openapi(routes.registeredstudents,handlers.registeredStudents)
   .openapi(routes.bulkuploadstudents,handlers.bulkUploadStudents)
-  .openapi(routes.getJobs, handlers.getJobs); // Add this line
+  .openapi(routes.getJobsWithStudentsRoute, handlers.getJobsWithStudents);
 
 export default router;

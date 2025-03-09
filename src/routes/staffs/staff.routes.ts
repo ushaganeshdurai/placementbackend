@@ -46,7 +46,7 @@ export const getOne = createRoute({
         role: z.string(),
         staff: selectStaffSchema,
         students: z.array(selectStudentSchema),
-        drives: z.array(selectDriveSchema), // Include drives in response schema
+        drives: z.array(selectDriveSchema),
       }),
       "The requested staff details including jobs"
     ),
@@ -135,8 +135,6 @@ export const removejobroute = createRoute({
   },
 });
 
-
-
 // Remove one student
 export const removestudentroute = createRoute({
   path: "/staff/student/{id}",
@@ -193,47 +191,20 @@ export const updatepassword = createRoute({
 });
 
 export const displayDrives = createRoute({
-    path: "/staff/displaydrives",
-    method: "get",
-    responses: {
-        [HttpStatusCodes.OK]: jsonContent(
-            selectDriveSchema,
-            "The requested drive details"
-        ),
-        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-            createErrorSchema(selectDriveSchema),
-            "Unauthorized access - Token required"
-        ),
-        [HttpStatusCodes.NOT_FOUND]: jsonContent(
-            notFoundSchema,
-            "Drive not found"
-        ),
-        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-            createErrorSchema(IdParamsSchema),
-            "Invalid ID format"
-        ),
-    },
-    middlewares: [supabaseMiddleware],
-});
-
-
-// see all the students those who have registered
-
-export const registeredstudents = createRoute({
-  path: "/staff/registeredstudents",
+  path: "/staff/displaydrives",
   method: "get",
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectApplicationsSchema,
-      "The requested applicant list"
+      selectDriveSchema,
+      "The requested drive details"
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createErrorSchema(selectApplicationsSchema),
+      createErrorSchema(selectDriveSchema),
       "Unauthorized access - Token required"
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       notFoundSchema,
-      "No registrations"
+      "Drive not found"
     ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createErrorSchema(IdParamsSchema),
@@ -243,6 +214,31 @@ export const registeredstudents = createRoute({
   middlewares: [supabaseMiddleware],
 });
 
+// See all the students who have registered for a specific drive
+export const registeredStudents = createRoute({
+  path: "/staff/registeredstudents/{driveId}",
+  method: "get",
+  request: {
+    params: z.object({
+      driveId: z.string().transform((val) => Number(val)), // Coerce to number
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.array(selectApplicationsSchema),
+      "The requested applicant list for a specific drive"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createErrorSchema(selectApplicationsSchema),
+      "Unauthorized access - Token required"
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "No registrations for this drive"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
 
 export const insertStudentsSchema = createInsertSchema(students)
   .required({
@@ -273,8 +269,7 @@ export const insertStudentsSchema = createInsertSchema(students)
     staffEmail: z.string().email(),
   });
 
-
-//bulk upload students
+// Bulk upload students
 export const bulkuploadstudents = createRoute({
   path: "/staff/bulkuploadstudents",
   method: "post",
@@ -296,16 +291,13 @@ export const bulkuploadstudents = createRoute({
   },
 });
 
-
-
-
-export type LoginStaffRoute = typeof loginStaff
+export type LoginStaffRoute = typeof loginStaff;
 export type GetOneRoute = typeof getOne;
 export type CreateStudentsRoute = typeof createstudentsroute;
 export type RemoveStudentRoute = typeof removestudentroute;
-export type CreateJobAlertRoute = typeof createjobalertroute
-export type RemoveJobRoute = typeof removejobroute
-export type UpdatePasswordRoute = typeof updatepassword
-export type RegisteredStudentsRoute = typeof registeredstudents
-export type DisplayDrivesRoute = typeof displayDrives
-export type BulkUploadStudentsRoute = typeof bulkuploadstudents
+export type CreateJobAlertRoute = typeof createjobalertroute;
+export type RemoveJobRoute = typeof removejobroute;
+export type UpdatePasswordRoute = typeof updatepassword;
+export type DisplayDrivesRoute = typeof displayDrives;
+export type BulkUploadStudentsRoute = typeof bulkuploadstudents;
+export type RegisteredStudentsRoute = typeof registeredStudents; // Updated type name

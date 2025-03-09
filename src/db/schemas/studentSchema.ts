@@ -20,7 +20,7 @@ export const students = pgTable('students', {
   tenthMark: doublePrecision('tenth_mark'),
   twelfthMark: doublePrecision('twelfth_mark'),
   cgpa: doublePrecision('cgpa'),
-  year: integer('year'),
+  batch: text(''),
   linkedinUrl: text('linkedin_url'),
   githubUrl: text('github_url'),
   regNo: text('reg_no').unique(),
@@ -56,7 +56,7 @@ export const insertStudentSchema = createInsertSchema(students).required({
   name: true,
   regNo: true,
   rollNo: true, //how to extract rollNo from email
-  year: true
+  batch: true
 });
 
 
@@ -70,7 +70,7 @@ export const insertResumeSchema = createInsertSchema(students).required({
   phoneNumber: true,
   noOfArrears: true,
   department: true,
-  year: true,
+  batch: true,
   githubUrl: true,
   linkedinUrl: true,
   twelfthMark: true,

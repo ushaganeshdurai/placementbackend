@@ -206,62 +206,62 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
 
 
 
-export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
-  try {
-    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
-    if (!jwtToken) {
-      return c.json({ error: "Unauthorized: No session found" }, 401);
-    }
+// export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
 
-    let userRole: string | null = null;
-    let userId: string | null = null;
+//     let userRole: string | null = null;
+//     let userId: string | null = null;
 
-    const SECRET_KEY = process.env.SECRET_KEY!;
-    try {
-      const decoded = await verify(jwtToken!, SECRET_KEY);
-      console.log("Decoded JWT:", decoded);
-      if (!decoded) throw new Error("Invalid session");
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken!, SECRET_KEY);
+//       console.log("Decoded JWT:", decoded);
+//       if (!decoded) throw new Error("Invalid session");
 
-      userRole = decoded.role as string;
-      userId = decoded.id as string;
-    } catch (error) {
-      console.error("Session Verification Error:", error);
-      return c.json({ error: "Invalid session" }, 401);
-    }
+//       userRole = decoded.role as string;
+//       userId = decoded.id as string;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
 
-    if (!userId) {
-      return c.json({ error: "Super admin ID missing from token" }, 400);
-    }
+//     if (!userId) {
+//       return c.json({ error: "Super admin ID missing from token" }, 400);
+//     }
 
-    const newJobs = c.req.valid("json");
-    if (!Array.isArray(newJobs)) {
-      return c.json([], HttpStatusCodes.OK);
-    }
+//     const newJobs = c.req.valid("json");
+//     if (!Array.isArray(newJobs)) {
+//       return c.json([], HttpStatusCodes.OK);
+//     }
 
-    if (userRole === "super_admin") {
-      const validJobs = await Promise.all(
-        newJobs.map(async (job) => ({
-          batch: job.batch!,
-          jobDescription: job.jobDescription!,
-          department: job.department,
-          expiration: job.expiration!, //format: mm/dd/yyyy, --:--:-- --
-          companyName: job.companyName!,
-          driveDate: job.driveDate!, //format: mm/dd/yyyy
-        }))
-      );
+//     if (userRole === "super_admin") {
+//       const validJobs = await Promise.all(
+//         newJobs.map(async (job) => ({
+//           batch: job.batch!,
+//           jobDescription: job.jobDescription!,
+//           department: job.department,
+//           expiration: job.expiration!, //format: mm/dd/yyyy, --:--:-- --
+//           companyName: job.companyName!,
+//           driveDate: job.driveDate!, //format: mm/dd/yyyy
+//         }))
+//       );
 
-      console.log("Super admin ID being used:", userId);
+//       console.log("Super admin ID being used:", userId);
 
-      const insertedJobs = await db.insert(drive).values(validJobs).returning();
-      return c.json(insertedJobs, HttpStatusCodes.OK);
-    }
+//       const insertedJobs = await db.insert(drive).values(validJobs).returning();
+//       return c.json(insertedJobs, HttpStatusCodes.OK);
+//     }
 
-    return c.json({ error: "Unauthorized" }, 403);
-  } catch (error) {
-    console.error("Students creation error:", error);
-    return c.json([], HttpStatusCodes.OK);
-  }
-};
+//     return c.json({ error: "Unauthorized" }, 403);
+//   } catch (error) {
+//     console.error("Students creation error:", error);
+//     return c.json([], HttpStatusCodes.OK);
+//   }
+// };
 
 
 
@@ -342,7 +342,24 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
   }
 
   try {
-    const registeredStudentsList = await db.select().from(applications).execute();
+      const registeredStudentsList = await db.select({
+          applicationId: applications.id,
+          studentName: students.name,
+          email:students.email,
+          arrears:students.noOfArrears,
+          cgpa:students.cgpa,
+          batch:students.batch,
+          department:students.department,
+          placedStatus:students.placedStatus,
+          regNo:students.regNo,
+          rollNo:students.rollNo,
+          companyName: drive.companyName,
+          appliedAt: applications.appliedAt
+        })
+        .from(applications)
+        .innerJoin(students, eq(applications.studentId, students.studentId))
+        .innerJoin(drive, eq(applications.driveId, drive.id))
+        .execute();
     return c.json({
       success: "Fetched applications successfully",
       userId,
@@ -433,7 +450,244 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
 
 
 
+  // superadmin.handlers.ts
+// Add this new handler
+// export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = async (c) => {
+//   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+
+//   if (!jwtToken) {
+//     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+//   }
+
+//   let userId = null;
+//   let userRole = null;
+
+//   try {
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     const decoded = await verify(jwtToken, SECRET_KEY);
+//     if (!decoded) throw new Error("Invalid session");
+//     userId = decoded.id;
+//     userRole = decoded.role;
+//   } catch (error) {
+//     console.error("Session Verification Error:", error);
+//     return c.json({ error: "Invalid session", success: false }, 401);
+//   }
+
+//   if (userRole !== "super_admin") {
+//     return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+//   }
+
+//   try {
+//     const jobsWithStudents = await db
+//       .select({
+//         jobId: drive.id,
+//         companyName: drive.companyName,
+//         jobDescription: drive.jobDescription,
+//         driveDate: drive.driveDate,
+//         expiration: drive.expiration,
+//         batch: drive.batch,
+//         department: drive.department,
+//         createdAt: drive.createdAt,
+//         studentApplications: {
+//           applicationId: applications.id,
+//           studentName: students.name,
+//           email: students.email,
+//           cgpa: students.cgpa,
+//           batch: students.batch,
+//           department: students.department,
+//           appliedAt: applications.appliedAt,
+//         },
+//       })
+//       .from(drive)
+//       .leftJoin(applications, eq(drive.id, applications.driveId))
+//       .leftJoin(students, eq(applications.studentId, students.studentId))
+//       .execute();
+
+//     // Group the data by job
+//     const groupedJobs = jobsWithStudents.reduce((acc, curr) => {
+//       const jobId = curr.jobId;
+//       if (!acc[jobId]) {
+//         acc[jobId] = {
+//           ...curr,
+//           students: [],
+//         };
+//       }
+//       if (curr.studentApplications.applicationId) {
+//         acc[jobId].students.push(curr.studentApplications);
+//       }
+//       delete acc[jobId].studentApplications;
+//       return acc;
+//     }, {});
+
+//     return c.json({
+//       success: true,
+//       jobs: Object.values(groupedJobs),
+//     }, 200);
+//   } catch (error) {
+//     console.error("Database query error:", error);
+//     return c.json({ error: "Failed to fetch jobs", success: false }, 500);
+//   }
+// };
+  
 
 
 
-z
+export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = async (c) => {
+  const authHeader = c.req.header('Authorization');
+  let jwtToken = null;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    jwtToken = authHeader.split(' ')[1];
+  } else {
+    jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+  }
+
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+  }
+
+  let userId = null;
+  let userRole = null;
+
+  try {
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    const decoded = await verify(jwtToken, SECRET_KEY);
+    if (!decoded) throw new Error("Invalid session");
+    userId = decoded.id;
+    userRole = decoded.role;
+    console.log('Decoded JWT:', decoded);
+  } catch (error) {
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session", success: false }, 401);
+  }
+
+  if (userRole !== "super_admin") {
+    return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+  }
+
+  try {
+    const jobsWithStudents = await db
+      .select({
+        jobId: drive.id,
+        companyName: drive.companyName,
+        jobDescription: drive.jobDescription,
+        driveDate: drive.driveDate,
+        expiration: drive.expiration,
+        batch: drive.batch,
+        department: drive.department,
+        createdAt: drive.createdAt,
+        driveLink: drive.driveLink, // Added driveLink
+        studentApplications: {
+          applicationId: applications.id,
+          studentName: students.name,
+          email: students.email,
+          cgpa: students.cgpa,
+          batch: students.batch,
+          department: students.department,
+          appliedAt: applications.appliedAt,
+        },
+      })
+      .from(drive)
+      .leftJoin(applications, eq(drive.id, applications.driveId))
+      .leftJoin(students, eq(applications.studentId, students.studentId))
+      .execute();
+
+    const groupedJobs = jobsWithStudents.reduce((acc, curr) => {
+      const jobId = curr.jobId;
+      if (!acc[jobId]) {
+        acc[jobId] = {
+          jobId: curr.jobId,
+          companyName: curr.companyName,
+          jobDescription: curr.jobDescription,
+          driveDate: curr.driveDate,
+          expiration: curr.expiration,
+          batch: curr.batch,
+          department: curr.department,
+          createdAt: curr.createdAt,
+          driveLink: curr.driveLink, // Added driveLink
+          students: [],
+        };
+      }
+      if (curr.studentApplications.applicationId) {
+        acc[jobId].students.push(curr.studentApplications);
+      }
+      return acc;
+    }, {});
+
+    const jobsArray = Object.values(groupedJobs);
+
+    return c.json({
+      success: true,
+      jobs: jobsArray,
+    }, HttpStatusCodes.OK);
+  } catch (error) {
+    console.error("Database query error:", error);
+    return c.json({ error: "Failed to fetch jobs", success: false }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  }
+};
+
+
+
+
+
+
+
+
+
+export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let userRole: string | null = null;
+    let userId: string | null = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken!, SECRET_KEY);
+      console.log("Decoded JWT:", decoded);
+      if (!decoded) throw new Error("Invalid session");
+      userRole = decoded.role as string;
+      userId = decoded.id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    if (!userId) {
+      return c.json({ error: "Super admin ID missing from token" }, 400);
+    }
+
+    const newJobs = c.req.valid("json");
+    console.log("Received jobs data:", newJobs); // Debug: Log incoming data
+    if (!Array.isArray(newJobs)) {
+      return c.json([], HttpStatusCodes.OK);
+    }
+
+    if (userRole === "super_admin") {
+      const validJobs = await Promise.all(
+        newJobs.map(async (job) => ({
+          batch: job.batch!,
+          jobDescription: job.jobDescription!,
+          department: job.department,
+          expiration: job.expiration!, // Expects YYYY-MM-DD HH:MM:SS
+          companyName: job.companyName!,
+          driveDate: job.driveDate!, // Expects YYYY-MM-DD
+          driveLink: job.driveLink!, // Added driveLink
+        }))
+      );
+
+      console.log("Formatted jobs for DB:", validJobs); // Debug: Log formatted data
+
+      const insertedJobs = await db.insert(drive).values(validJobs).returning();
+      return c.json(insertedJobs, HttpStatusCodes.OK);
+    }
+
+    return c.json({ error: "Unauthorized" }, 403);
+  } catch (error) {
+    console.error("Job creation error:", error);
+    return c.json({ error: "Failed to create jobs", details: error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  }
+};
