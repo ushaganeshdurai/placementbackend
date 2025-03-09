@@ -306,8 +306,9 @@ export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) =>
         newJobs.map(async (job) => ({
           batch: job.batch,
           jobDescription: job.jobDescription,
-          department: job.department,
-          expiration: job.expiration,
+          department: job.department ? [job.department] : null,
+          driveLink:job.driveLink,
+          expiration: job.expiration, //format: mm/dd/yyyy, --:--:-- --
           companyName: job.companyName,
           driveDate: job.driveDate,
         }))
