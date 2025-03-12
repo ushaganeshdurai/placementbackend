@@ -32,7 +32,7 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
   }
 
   const SECRET_KEY = process.env.SECRET_KEY!;
-  const sessionToken = await sign({ id: admin.id, role: "super_admin" }, SECRET_KEY);
+  const sessionToken = await sign({ id: admin.id,email:admin.email, role: "super_admin" }, SECRET_KEY);
 
   setCookie(c, "admin_session", sessionToken, {
     httpOnly: true,

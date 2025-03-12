@@ -1,6 +1,6 @@
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
-import { setCookie, getCookie } from "hono/cookie";
+import { setCookie, getCookie, deleteCookie } from "hono/cookie";
 import { sign, verify } from 'hono/jwt';
 import { OAuthRoute, OAuthSuccessRoute, OAuthStudentRoute, OAuthStaffRoute, SessionRoute } from "./auth.routes";
 import db from "@/db";
@@ -278,10 +278,10 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   );
 
   // Clear all existing session cookies before setting the new one
-  setCookie(c, "student_session", "", { path: "/", maxAge: 0, domain: "localhost" });
-  setCookie(c, "staff_session", "", { path: "/", maxAge: 0, domain: "localhost" });
-  setCookie(c, "oauth_session", "", { path: "/", maxAge: 0, domain: "localhost" });
-  setCookie(c, "admin_session", "", { path: "/", maxAge: 0, domain: "localhost" });
+  deleteCookie(c, "student_session", { path: "/", maxAge: 0, domain: "localhost" });
+  deleteCookie(c, "staff_session", { path: "/", maxAge: 0, domain: "localhost" });
+  deleteCookie(c, "oauth_session", { path: "/", maxAge: 0, domain: "localhost" });
+  deleteCookie(c, "admin_session", { path: "/", maxAge: 0, domain: "localhost" });
 
   // Set the new session cookie based on the user role
   const cookieName = userRole === "student" ? "student_session" :
@@ -307,6 +307,8 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
   const redirectPath = userRole === "student" ? "/dashboard/student" :
                       userRole === "staff" ? "/dashboard/staff" :
                       "/dashboard/superadmin";
+
+                      //need to return staff_id,student_id
   return c.json({
     success: true,
     role: userRole,

@@ -4,9 +4,11 @@ import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
 import type { BulkUploadStudentsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, GetOneRoute, LoginStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
-import { applications, drive, staff, students } from "drizzle/schema";
+import { applications, drive, staff, students} from "drizzle/schema";
+import { insertStudentSchema } from "@/db/schemas/studentSchema";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
+import { z } from "zod";
 
 
 // login the staff
@@ -49,208 +51,20 @@ export const loginStaff: AppRouteHandler<LoginStaffRoute> = async (c) => {
 };
 
 
-// export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
-//   const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
-
-//   if (!jwtToken) {
-//     return c.json({ error: "Unauthorized: No session found" }, 401);
-//   }
-
-//   let staffId = null;
-//   let userRole = null;
-
-//   try {
-//     const SECRET_KEY = process.env.SECRET_KEY!;
-//     const decoded = await verify(jwtToken!, SECRET_KEY);
-//     if (!decoded) throw new Error("Invalid session");
-//     staffId = decoded.staff_id as string;
-//     userRole = decoded.role;
-//   } catch (error) {
-//     if (error === "TokenExpiredError") {
-//       return c.json({ error: "Session expired" }, 401);
-//     }
-//     console.error("Session Verification Error:", error);
-//     return c.json({ error: "Invalid session" }, 401);
-//   }
-
-//   if (userRole !== "staff") {
-//     return c.json({ error: "Unauthorized: Insufficient role" }, 403);
-//   }
-
-//   try {
-//     const staff_details = await db.select().from(staff).where(eq(staff.staffId, String(staffId))).execute();
-
-//     const studentList = await db
-//       .select()
-//       .from(students)
-//       .where(eq(students.staffId, String(staffId)))
-//       .execute();
-//     return c.json({
-//       success: "Authorization successful",
-//       staffId,
-//       role: userRole,
-//       staff: staff_details[0],
-//       students: studentList
-//     }, 200);
-
-//   } catch (error) {
-//     console.error("Database query error:", error);
-//     return c.json({ error: "Failed to fetch data" }, 500);
-//   }
-// };
-
-
-
-//Add Student
-// export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) => {
-//   try {
-//     const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
-//     if (!jwtToken) {
-//       return c.json({ error: "Unauthorized: No session found" }, 401);
-//     }
-
-//     let userRole: string | null = null;
-//     let staffId: string | null = null;
-
-//     const SECRET_KEY = process.env.SECRET_KEY!;
-//     try {
-//       const decoded = await verify(jwtToken!, SECRET_KEY);
-//       console.log("Decoded JWT:", decoded);
-//       if (!decoded) throw new Error("Invalid session");
-
-//       userRole = decoded.role as string;
-//       staffId = decoded.staff_id as string;
-//     } catch (error) {
-//       console.error("Session Verification Error:", error);
-//       return c.json({ error: "Invalid session" }, 401);
-//     }
-
-//     if (!staffId) {
-//       return c.json({ error: "Staff ID missing from token" }, 400);
-//     }
-
-//     const newStudents = c.req.valid("json");
-//     if (!Array.isArray(newStudents)) {
-//       return c.json([], HttpStatusCodes.OK);
-//     }
-
-//     if (userRole === "staff") {
-//       const validStudents = await Promise.all(
-//         newStudents
-//           .filter((student) => student.email.endsWith("@saec.ac.in")) // Check email suffix
-//           .map(async (student) => ({
-//             email: student.email,
-//             staffId: staffId,
-//             password: await bcrypt.hash(student.password!, 10),
-//           }))
-//       );
-
-//       if (validStudents.length === 0) {
-//         return c.json({ error: "No valid students found with @saec.ac.in domain", success: false }, 400);
-//       }
-
-//       console.log("Staff ID being used:", staffId);
-
-//       const insertedStudents = await db.insert(students).values(validStudents).returning();
-//       return c.json(insertedStudents, HttpStatusCodes.OK);
-//     }
-
-
-//     return c.json({ error: "Unauthorized" }, 403);
-//   } catch (error) {
-//     console.error("Students creation error:", error);
-//     return c.json([], HttpStatusCodes.OK);
-//   }
-// };
-
-//bulk upload students
-
-// export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
-
-//   type StudentData = {
-//     staffEmail: string;
-//     email: string;
-//     password: string;
-//   };
-
-//   try {
-//     const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
-//     if (!jwtToken) {
-//       return c.json({ error: "Unauthorized: No session found" }, 401);
-//     }
-
-//     let userRole = null;
-//     try {
-//       const SECRET_KEY = process.env.SECRET_KEY!;
-//       const decoded = await verify(jwtToken, SECRET_KEY);
-//       if (!decoded) throw new Error("Invalid session");
-//       userRole = decoded.role;
-//     } catch (error) {
-//       console.error("Session Verification Error:", error);
-//       return c.json({ error: "Invalid session" }, 401);
-//     }
-
-//     if (userRole !== "staff") {
-//       return c.json({ error: "Unauthorized" }, 403);
-//     }
-
-//     const studentData: StudentData[] = c.req.valid("json").map((student: any) => ({
-//       ...student,
-//       password: student.password || ""
-//     }));
-//     if (!Array.isArray(studentData) || studentData.length === 0) {
-//       return c.json({ error: "No valid students found" }, 400);
-//     }
-
-//     if (studentData.some(s => !s.staffEmail || !s.email || !s.password)) {
-//       return c.json({ error: "Missing required fields: staffEmail, email, or password" }, 400);
-//     }
-
-//     const staffEmails = [...new Set(studentData.map(s => s.staffEmail))];
-
-//     const staffRecords = await db
-//       .select({ email: staff.email, id: staff.staffId })
-//       .from(staff)
-//       .where(inArray(staff.email, staffEmails));
-
-//     const staffEmailToId = Object.fromEntries(staffRecords.map(s => [s.email, s.id]));
-
-//     const invalidEmails = staffEmails.filter(email => !staffEmailToId[email]);
-//     if (invalidEmails.length > 0) {
-//       return c.json({ error: "Invalid staff emails", emails: invalidEmails }, 400);
-//     }
-
-//     const validStudents = studentData.map(({ staffEmail, email, password }) => ({
-//       email,
-//       password: bcrypt.hashSync(password, 10),
-//       staffId: staffEmailToId[staffEmail],
-//     }));
-
-//     const insertedStudents = await db.insert(students).values(validStudents).returning();
-
-//     return c.json(insertedStudents, 200);
-//   } catch (error) {
-//     console.error("Bulk student upload error:", error);
-//     return c.json({ error: "Something went wrong" }, 500);
-//   }
-// };
-
-
-
-
 //Remove Student
-
-
-
-
 export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
   try {
     const { id } = c.req.valid("param");
+    console.log(`Attempting to delete student with ID: ${id}`);
 
     const result = await db.delete(students)
-      .where(eq(students.studentId, id));
+      .where(eq(students.studentId, id))
+      .execute();
 
-    if (result.length === 0) {
+    console.log(`Delete result:`, result);
+
+    if (result.count === 0) {
+      console.log(`Student with ID ${id} not found in database`);
       return c.json({
         errors: [{
           code: 'NOT_FOUND',
@@ -259,19 +73,18 @@ export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
       }, HttpStatusCodes.NOT_FOUND);
     }
 
+    console.log(`Student with ID ${id} deleted successfully`);
     return c.body(null, HttpStatusCodes.NO_CONTENT);
-
   } catch (error) {
     console.error('Student deletion error:', error);
     return c.json({
       errors: [{
         path: ['param', 'id'],
-        message: 'Invalid student ID format'
+        message: 'Invalid student ID format or server error'
       }]
     }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
   }
 };
-
 
 //Post job
 export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
@@ -335,7 +148,6 @@ export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) =>
 
 
 //Remove job
-
 export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
   try {
     const { id } = c.req.valid("param");
@@ -354,7 +166,7 @@ export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
   }
 };
 
-
+//update password
 export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {
   try {
     // Get JWT Token from cookies
@@ -522,126 +334,104 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
   }
 };
 
+//bulk student upload
+// export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
+//   const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
 
+//   if (!jwtToken) {
+//     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+//   }
 
+//   let staffId = null;
+//   let userRole = null;
+//   let staffDepartment = null;
 
+//   try {
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     const decoded = await verify(jwtToken, SECRET_KEY);
+//     if (!decoded) throw new Error("Invalid session");
+//     staffId = decoded.staff_id;
+//     userRole = decoded.role;
+//   } catch (error) {
+//     console.error("Session Verification Error:", error);
+//     return c.json({ error: "Invalid session", success: false }, 401);
+//   }
 
+//   if (userRole !== "staff") {
+//     return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+//   }
 
+//   const staffDetails = await db
+//     .select({ email: staff.email, department: staff.department })
+//     .from(staff)
+//     .where(eq(staff.staffId, staffId))
+//     .execute();
+//   staffDepartment = staffDetails[0]?.department;
+//   if (!staffDepartment) {
+//     return c.json({ error: "Staff department not found", success: false }, 400);
+//   }
 
+//   const body = await c.req.json();
+//   const studentData = body.map(student => ({
+//     email: student.email,
+//     password: student.password,
+//     staffId: staffId,
+//     department: staffDepartment, // Use staff's department
+//     batch: student.batch, // From Excel
+//   }));
 
+//   try {
+//     const existingStudents = await db
+//       .select({ email: students.email })
+//       .from(students)
+//       .where(inArray(students.email, studentData.map((s) => s.email)))
+//       .execute();
+//     const existingEmails = new Set(existingStudents.map((s) => s.email));
 
+//     const newStudents = studentData.filter((student) => !existingEmails.has(student.email));
 
+//     if (newStudents.length === 0) {
+//       return c.json({
+//         success: true,
+//         message: "No new students to upload; all emails already exist",
+//         inserted: [],
+//         skipped: studentData,
+//       }, 200);
+//     }
 
+//     const insertedStudents = await db
+//       .insert(students)
+//       .values(newStudents)
+//       .returning({ studentId: students.studentId, email: students.email, staffId: students.staffId, department: students.department, batch: students.batch });
 
+//     const responseInserted = insertedStudents.map(student => ({
+//       ...student,
+//       staffEmail: staffDetails[0].email,
+//     }));
+//     const responseSkipped = studentData
+//       .filter((student) => existingEmails.has(student.email))
+//       .map(student => ({ ...student, staffEmail: staffDetails[0].email }));
 
+//     return c.json({
+//       success: true,
+//       message: `Inserted ${insertedStudents.length} students, skipped ${responseSkipped.length} duplicates`,
+//       inserted: responseInserted,
+//       skipped: responseSkipped,
+//     }, 200);
+//   } catch (error) {
+//     console.error("Bulk upload error:", error);
+//     if (error.code === "23505") {
+//       return c.json({
+//         error: "Some emails already exist in the database",
+//         success: false,
+//         details: error.detail,
+//       }, 409);
+//     }
+//     return c.json({ error: "Failed to upload students", success: false }, 500);
+//   }
+// };
 
-
-export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
-  const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
-
-  if (!jwtToken) {
-    return c.json({ error: "Unauthorized: No session found", success: false }, 401);
-  }
-
-  let staffId = null;
-  let userRole = null;
-  let staffDepartment = null;
-
-  try {
-    const SECRET_KEY = process.env.SECRET_KEY!;
-    const decoded = await verify(jwtToken, SECRET_KEY);
-    if (!decoded) throw new Error("Invalid session");
-    staffId = decoded.staff_id;
-    userRole = decoded.role;
-  } catch (error) {
-    console.error("Session Verification Error:", error);
-    return c.json({ error: "Invalid session", success: false }, 401);
-  }
-
-  if (userRole !== "staff") {
-    return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
-  }
-
-  const staffDetails = await db
-    .select({ email: staff.email, department: staff.department })
-    .from(staff)
-    .where(eq(staff.staffId, staffId))
-    .execute();
-  staffDepartment = staffDetails[0]?.department;
-  if (!staffDepartment) {
-    return c.json({ error: "Staff department not found", success: false }, 400);
-  }
-
-  const body = await c.req.json();
-  const studentData = body.map(student => ({
-    email: student.email,
-    password: student.password,
-    staffId: staffId,
-    department: staffDepartment, // Use staff's department
-    batch: student.batch, // From Excel
-  }));
-
-  try {
-    const existingStudents = await db
-      .select({ email: students.email })
-      .from(students)
-      .where(inArray(students.email, studentData.map((s) => s.email)))
-      .execute();
-    const existingEmails = new Set(existingStudents.map((s) => s.email));
-
-    const newStudents = studentData.filter((student) => !existingEmails.has(student.email));
-
-    if (newStudents.length === 0) {
-      return c.json({
-        success: true,
-        message: "No new students to upload; all emails already exist",
-        inserted: [],
-        skipped: studentData,
-      }, 200);
-    }
-
-    const insertedStudents = await db
-      .insert(students)
-      .values(newStudents)
-      .returning({ studentId: students.studentId, email: students.email, staffId: students.staffId, department: students.department, batch: students.batch });
-
-    const responseInserted = insertedStudents.map(student => ({
-      ...student,
-      staffEmail: staffDetails[0].email,
-    }));
-    const responseSkipped = studentData
-      .filter((student) => existingEmails.has(student.email))
-      .map(student => ({ ...student, staffEmail: staffDetails[0].email }));
-
-    return c.json({
-      success: true,
-      message: `Inserted ${insertedStudents.length} students, skipped ${responseSkipped.length} duplicates`,
-      inserted: responseInserted,
-      skipped: responseSkipped,
-    }, 200);
-  } catch (error) {
-    console.error("Bulk upload error:", error);
-    if (error.code === "23505") {
-      return c.json({
-        error: "Some emails already exist in the database",
-        success: false,
-        details: error.detail,
-      }, 409);
-    }
-    return c.json({ error: "Failed to upload students", success: false }, 500);
-  }
-};
-
-
-
-
-
-
-
-
-
-
-
+//students creation
 export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) => {
   try {
     const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
@@ -721,7 +511,528 @@ export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) =>
   }
 };
 
+//get one
+// export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
+//   const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
 
+//   if (!jwtToken) {
+//     return c.json({ error: "Unauthorized: No session found" }, 401);
+//   }
+
+//   let staffId = null;
+//   let userRole = null;
+
+//   try {
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     const decoded = await verify(jwtToken, SECRET_KEY);
+//     if (!decoded) throw new Error("Invalid session");
+//     staffId = (decoded.staff_id || decoded.id) as string;
+//     userRole = decoded.role;
+//     console.log("JWT Token:", jwtToken);
+//     console.log("Decoded JWT:", decoded);
+//   } catch (error) {
+//     console.error("Session Verification Error:", error);
+//     return c.json({ error: `Invalid session: ${error.message}` }, 401);
+//   }
+
+//   if (userRole !== "staff") {
+//     return c.json({ error: "Unauthorized: Insufficient role" }, 403);
+//   }
+
+//   try {
+//     const staff_details = await db
+//       .select({
+//         staffId: staff.staffId,
+//         email: staff.email,
+//         name: staff.name,
+//         department: staff.department,
+//       })
+//       .from(staff)
+//       .where(eq(staff.staffId, staffId))
+//       .execute();
+
+//     console.log("Staff Query Result:", staff_details);
+
+//     if (staff_details.length === 0) {
+//       return c.json({ error: `Staff not found for staffId: ${staffId}` }, 404);
+//     }
+
+//     const staffDepartment = staff_details[0]?.department;
+//     if (!staffDepartment) {
+//       return c.json({ error: `Staff department not set for staffId: ${staffId}` }, 400);
+//     }
+
+//     // Fetch all students in the staff's department
+//     const allStudents = await db
+//       .select({
+//         studentId: students.studentId,
+//         email: students.email,
+//         staffEmail: staff.email,
+//         department: students.department,
+//         batch: students.batch,
+//         staffId: students.staffId, // Include staffId to filter later
+//       })
+//       .from(students)
+//       .leftJoin(staff, eq(students.staffId, staff.staffId))
+//       .where(eq(students.department, staffDepartment))
+//       .execute();
+
+//     // Group all students by batch
+//     const allStudentsByBatch = allStudents.reduce((acc, student) => {
+//       const batch = student.batch || "Unknown";
+//       if (!acc[batch]) acc[batch] = [];
+//       acc[batch].push(student);
+//       return acc;
+//     }, {});
+
+//     // Filter and group students added by this staff
+//     const yourStudents = allStudents.filter(student => student.staffId === staffId);
+//     const yourStudentsByBatch = yourStudents.reduce((acc, student) => {
+//       const batch = student.batch || "Unknown";
+//       if (!acc[batch]) acc[batch] = [];
+//       acc[batch].push(student);
+//       return acc;
+//     }, {});
+
+//     const jobList = await db.select().from(drive).execute();
+
+//     return c.json({
+//       success: "Authorization successful",
+//       staffId,
+//       role: userRole,
+//       staff: staff_details[0],
+//       allStudents: allStudentsByBatch, // All department students by batch
+//       yourStudents: yourStudentsByBatch, // Staff-specific students by batch
+//       drives: jobList,
+//     }, 200);
+//   } catch (error) {
+//     console.error("Database query error:", error);
+//     return c.json({ error: "Failed to fetch data" }, 500);
+//   }
+// };
+
+
+
+
+export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found", success: false } as never, 401);
+    }
+
+    let userRole: string | null = null;
+    let staffId: string | null = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken!, SECRET_KEY);
+      console.log("Decoded JWT:", decoded);
+      if (!decoded) throw new Error("Invalid session");
+
+      userRole = decoded.role as string;
+      staffId = decoded.staff_id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session", success: false } as never, 401);
+    }
+
+    if (!staffId) {
+      return c.json({ error: "Staff ID missing from token", success: false } as never, 400);
+    }
+
+    const placed = c.req.valid("json");
+    if (!Array.isArray(placed) || placed.length === 0) {
+      return c.json([], 400);
+    }
+
+    if (userRole === "staff") {
+      console.log("Updating placedstatus for students:", placed);
+
+      const updatedStudents = await db
+        .update(students)
+        .set({ placedStatus: "yes" })
+        .where(inArray(students.email, placed.map((s) => s.email)));
+
+      console.log("Updated Students:", updatedStudents);
+      return c.json(placed, 200);
+    }
+
+    return c.json({ error: "Unauthorized", success: false } as never, 403);
+  } catch (error) {
+    console.error("Students update error:", error);
+    return c.json({ error: "An error occurred", success: false } as never, 500);
+  }
+};
+
+
+
+
+
+
+
+
+
+// export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
+//   console.log("1. Entering bulkUploadStudents handler");
+//   console.log("2. Request Headers:", c.req.headers);
+
+//   const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+//   if (!jwtToken) {
+//     console.log("3. No session found");
+//     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+//   }
+
+//   let staffId = null;
+//   let userRole = null;
+//   let staffDepartment = null;
+//   let staffEmail = null;
+
+//   try {
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     const decoded = await verify(jwtToken, SECRET_KEY);
+//     if (!decoded) throw new Error("Invalid session");
+//     staffId = decoded.staff_id;
+//     userRole = decoded.role;
+//     console.log("4. Session decoded:", { staffId, userRole });
+//   } catch (error) {
+//     console.error("5. Session Verification Error:", error);
+//     return c.json({ error: "Invalid session", success: false }, 401);
+//   }
+
+//   if (userRole !== "staff") {
+//     console.log("6. Insufficient role");
+//     return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+//   }
+
+//   const staffDetails = await db
+//     .select({ email: staff.email, department: staff.department })
+//     .from(staff)
+//     .where(eq(staff.staffId, staffId))
+//     .execute();
+//   staffDepartment = staffDetails[0]?.department;
+//   staffEmail = staffDetails[0]?.email;
+//   if (!staffDepartment || !staffEmail) {
+//     console.log("7. Staff details not found");
+//     return c.json({ error: "Staff department or email not found", success: false }, 400);
+//   }
+//   console.log("8. Staff details:", { staffId, staffEmail, staffDepartment });
+
+//   let body;
+//   try {
+//     console.log("9. Attempting to parse body");
+//     body = await c.req.json();
+//     console.log("10. Received Body:", body);
+//   } catch (error) {
+//     console.error("11. Error parsing request body:", error);
+//     return c.json(
+//       { error: "Failed to parse request body", success: false, details: error.message },
+//       400
+//     );
+//   }
+
+//   if (!body || !Array.isArray(body)) {
+//     console.log("12. Body validation failed:", body);
+//     return c.json(
+//       { error: "Invalid request body: Expected an array", success: false },
+//       400
+//     );
+//   }
+
+//   // Debug schema
+//   console.log("13. Schema Definition:", insertStudentSchema.shape);
+//   let validatedData;
+//   try {
+//     console.log("14. Validating body against schema");
+//     validatedData = z.array(insertStudentSchema).parse(body);
+//     console.log("15. Schema validation passed:", validatedData);
+//   } catch (validationError) {
+//     console.error("16. Validation Error Raw:", validationError);
+//     const issues = validationError instanceof z.ZodError ? validationError.issues : [];
+//     console.error("17. Validation Issues:", issues);
+//     return c.json(
+//       {
+//         error: "Invalid data format",
+//         details: issues.map((e) => ({
+//           path: e.path,
+//           message: e.message,
+//         })),
+//         success: false,
+//       },
+//       HttpStatusCodes.UNPROCESSABLE_ENTITY
+//     );
+//   }
+
+//   console.log("18. Mapping student data");
+//   const studentData = validatedData.map((student) => ({
+//     email: student.email,
+//     password: student.password,
+//     staffId: staffId,
+//     department: staffDepartment,
+//     batch: student.batch || null,
+//   }));
+//   console.log("19. Mapped Student Data:", studentData);
+
+//   try {
+//     const existingStudents = await db
+//       .select({ email: students.email })
+//       .from(students)
+//       .where(inArray(students.email, studentData.map((s) => s.email)))
+//       .execute();
+//     const existingEmails = new Set(existingStudents.map((s) => s.email));
+//     console.log("20. Existing Emails:", existingEmails);
+
+//     const newStudents = studentData.filter((student) => !existingEmails.has(student.email));
+//     console.log("21. New Students to Insert:", newStudents);
+
+//     if (newStudents.length === 0) {
+//       console.log("22. No new students to insert");
+//       return c.json({
+//         success: true,
+//         message: "No new students to upload; all emails already exist",
+//         inserted: [],
+//         skipped: studentData,
+//       }, 200);
+//     }
+
+//     const insertedStudents = await db
+//       .insert(students)
+//       .values(newStudents)
+//       .returning({
+//         studentId: students.studentId,
+//         email: students.email,
+//         staffId: students.staffId,
+//         department: students.department,
+//         batch: students.batch,
+//       });
+//     console.log("23. Inserted Students:", insertedStudents);
+
+//     const responseInserted = insertedStudents.map((student) => ({
+//       ...student,
+//       staffEmail: staffEmail,
+//     }));
+//     const responseSkipped = studentData
+//       .filter((student) => existingEmails.has(student.email))
+//       .map((student) => ({ ...student, staffEmail: staffEmail }));
+
+//     console.log("24. Response Prepared:", { inserted: responseInserted, skipped: responseSkipped });
+//     return c.json({
+//       success: true,
+//       message: `Inserted ${insertedStudents.length} students, skipped ${responseSkipped.length} duplicates`,
+//       inserted: responseInserted,
+//       skipped: responseSkipped,
+//     }, 200);
+//   } catch (error) {
+//     console.error("25. Bulk upload error:", error);
+//     if (error.code === "23505") {
+//       return c.json(
+//         {
+//           error: "Some emails already exist in the database",
+//           success: false,
+//           details: error.detail,
+//         },
+//         409
+//       );
+//     }
+//     return c.json({ error: "Failed to upload students", success: false }, 500);
+//   }
+// };
+
+
+export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
+  console.log("1. Entering bulkUploadStudents handler");
+  console.log("2. Request Headers:", c.req.headers);
+
+  const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+  if (!jwtToken) {
+    console.log("3. No session found");
+    return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+  }
+
+  let staffId = null;
+  let userRole = null;
+  let defaultStaffDepartment = null;
+  let defaultStaffEmail = null;
+
+  try {
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    const decoded = await verify(jwtToken, SECRET_KEY);
+    if (!decoded) throw new Error("Invalid session");
+    staffId = decoded.staff_id;
+    userRole = decoded.role;
+    console.log("4. Session decoded:", { staffId, userRole });
+  } catch (error) {
+    console.error("5. Session Verification Error:", error);
+    return c.json({ error: "Invalid session", success: false }, 401);
+  }
+
+  if (userRole !== "staff") {
+    console.log("6. Insufficient role");
+    return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+  }
+
+  const staffDetails = await db
+    .select({ email: staff.email, department: staff.department })
+    .from(staff)
+    .where(eq(staff.staffId, staffId))
+    .execute();
+  defaultStaffDepartment = staffDetails[0]?.department;
+  defaultStaffEmail = staffDetails[0]?.email;
+  if (!defaultStaffDepartment || !defaultStaffEmail) {
+    console.log("7. Default staff details not found");
+    return c.json({ error: "Staff department or email not found", success: false }, 400);
+  }
+  console.log("8. Default staff details:", { staffId, defaultStaffEmail, defaultStaffDepartment });
+
+  let body;
+  try {
+    console.log("9. Attempting to parse body");
+    body = await c.req.json();
+    console.log("10. Received Body:", body);
+  } catch (error) {
+    console.error("11. Error parsing request body:", error);
+    return c.json(
+      { error: "Failed to parse request body", success: false, details: error.message },
+      400
+    );
+  }
+
+  if (!body || !Array.isArray(body)) {
+    console.log("12. Body validation failed:", body);
+    return c.json(
+      { error: "Invalid request body: Expected an array", success: false },
+      400
+    );
+  }
+
+  // Extend schema to allow optional staffEmail and department
+  const extendedSchema = insertStudentSchema.extend({
+    staffEmail: z.string().email().optional(),
+    department: z.string().optional(), // Add department as optional
+  });
+
+  let validatedData;
+  try {
+    console.log("13. Validating body against extended schema");
+    validatedData = z.array(extendedSchema).parse(body);
+    console.log("14. Schema validation passed:", validatedData);
+  } catch (validationError) {
+    console.error("15. Validation Error Raw:", validationError);
+    const issues = validationError instanceof z.ZodError ? validationError.issues : [];
+    console.error("16. Validation Issues:", issues);
+    return c.json(
+      {
+        error: "Invalid data format",
+        details: issues.map((e) => ({
+          path: e.path,
+          message: e.message,
+        })),
+        success: false,
+      },
+      HttpStatusCodes.UNPROCESSABLE_ENTITY
+    );
+  }
+
+  // Map students with staffId and department
+  console.log("17. Mapping student data");
+  const studentDataPromises = validatedData.map(async (student) => {
+    let targetStaffId = staffId;
+    let targetStaffEmail = defaultStaffEmail;
+    let targetDepartment = student.department || defaultStaffDepartment; // Use provided department or fallback
+
+    // Hash the password before storing
+  const hashedPassword = await bcrypt.hash(student.password, 10);
+
+  if (student.staffEmail) {
+    const staffRecord = await db
+      .select({ staffId: staff.staffId, department: staff.department })
+      .from(staff)
+      .where(eq(staff.email, student.staffEmail))
+      .execute();
+    if (staffRecord.length > 0) {
+      targetStaffId = staffRecord[0].staffId;
+      targetStaffEmail = student.staffEmail;
+      targetDepartment = student.department || staffRecord[0].department;
+    }
+  }
+
+  return {
+    email: student.email,
+    password: hashedPassword, // Store the hashed password instead of plain text
+    staffId: targetStaffId,
+    department: targetDepartment,
+    batch: student.batch || null,
+    staffEmail: targetStaffEmail,
+  };
+  });
+
+  const studentData = await Promise.all(studentDataPromises);
+  console.log("19. Mapped Student Data:", studentData);
+
+  try {
+    const existingStudents = await db
+      .select({ email: students.email })
+      .from(students)
+      .where(inArray(students.email, studentData.map((s) => s.email)))
+      .execute();
+    const existingEmails = new Set(existingStudents.map((s) => s.email));
+    console.log("20. Existing Emails:", existingEmails);
+
+    const newStudents = studentData.filter((student) => !existingEmails.has(student.email));
+    console.log("21. New Students to Insert:", newStudents);
+
+    if (newStudents.length === 0) {
+      console.log("22. No new students to insert");
+      return c.json({
+        success: true,
+        message: "No new students to upload; all emails already exist",
+        inserted: [],
+        skipped: studentData,
+      }, 200);
+    }
+
+    const insertedStudents = await db
+      .insert(students)
+      .values(newStudents.map(({ staffEmail, ...rest }) => rest))
+      .returning({
+        studentId: students.studentId,
+        email: students.email,
+        staffId: students.staffId,
+        department: students.department,
+        batch: students.batch,
+      });
+    console.log("23. Inserted Students:", insertedStudents);
+
+    const responseInserted = insertedStudents.map((student) => {
+      const matchingStudent = newStudents.find((s) => s.email === student.email);
+      return { ...student, staffEmail: matchingStudent?.staffEmail };
+    });
+    const responseSkipped = studentData
+      .filter((student) => existingEmails.has(student.email))
+      .map((student) => ({ ...student }));
+
+    console.log("24. Response Prepared:", { inserted: responseInserted, skipped: responseSkipped });
+    return c.json({
+      success: true,
+      message: `Inserted ${insertedStudents.length} students, skipped ${responseSkipped.length} duplicates`,
+      inserted: responseInserted,
+      skipped: responseSkipped,
+    }, 200);
+  } catch (error) {
+    console.error("25. Bulk upload error:", error);
+    if (error.code === "23505") {
+      return c.json(
+        {
+          error: "Some emails already exist in the database",
+          success: false,
+          details: error.detail,
+        },
+        409
+      );
+    }
+    return c.json({ error: "Failed to upload students", success: false }, 500);
+  }
+};
 
 
 
@@ -776,7 +1087,8 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       return c.json({ error: `Staff not found for staffId: ${staffId}` }, 404);
     }
 
-    const staffDepartment = staff_details[0]?.department;
+    const staffEmail = staff_details[0].email;
+    const staffDepartment = staff_details[0].department;
     if (!staffDepartment) {
       return c.json({ error: `Staff department not set for staffId: ${staffId}` }, 400);
     }
@@ -789,27 +1101,27 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
         staffEmail: staff.email,
         department: students.department,
         batch: students.batch,
-        staffId: students.staffId, // Include staffId to filter later
+        staffId: students.staffId,
       })
       .from(students)
       .leftJoin(staff, eq(students.staffId, staff.staffId))
       .where(eq(students.department, staffDepartment))
       .execute();
 
-    // Group all students by batch
-    const allStudentsByBatch = allStudents.reduce((acc, student) => {
+    // Group all students by department and batch
+    const allStudentsByDeptAndBatch = allStudents.reduce((acc, student) => {
+      const dept = student.department || "Unknown";
       const batch = student.batch || "Unknown";
-      if (!acc[batch]) acc[batch] = [];
-      acc[batch].push(student);
+      if (!acc[dept]) acc[dept] = {};
+      acc[dept][batch] = [...(acc[dept][batch] || []), student];
       return acc;
     }, {});
 
     // Filter and group students added by this staff
-    const yourStudents = allStudents.filter(student => student.staffId === staffId);
+    const yourStudents = allStudents.filter((student) => student.staffId === staffId);
     const yourStudentsByBatch = yourStudents.reduce((acc, student) => {
       const batch = student.batch || "Unknown";
-      if (!acc[batch]) acc[batch] = [];
-      acc[batch].push(student);
+      acc[batch] = [...(acc[batch] || []), student];
       return acc;
     }, {});
 
@@ -819,9 +1131,11 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       success: "Authorization successful",
       staffId,
       role: userRole,
+      staffEmail, // Added
+      staffDepartment, // Added
       staff: staff_details[0],
-      allStudents: allStudentsByBatch, // All department students by batch
-      yourStudents: yourStudentsByBatch, // Staff-specific students by batch
+      allStudents: allStudentsByDeptAndBatch, // Grouped by department and batch
+      yourStudents: yourStudentsByBatch, // Grouped by batch
       drives: jobList,
     }, 200);
   } catch (error) {

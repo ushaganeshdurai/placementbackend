@@ -240,12 +240,85 @@ export const registeredStudents = createRoute({
   middlewares: [supabaseMiddleware],
 });
 
-export const insertStudentsSchema = createInsertSchema(students)
+// export const insertStudentsSchema = createInsertSchema(students)
+//   .required({
+//     email: true,
+//     password: true,
+//   })
+//   .omit({
+//     studentId: true,
+//     userId: true,
+//     department: true,
+//     placedStatus: true,
+//     staffId: true,
+//     skillSet: true,
+//     languagesKnown: true,
+//     phoneNumber: true,
+//     noOfArrears: true,
+//     githubUrl: true,
+//     linkedinUrl: true,
+//     twelfthMark: true,
+//     tenthMark: true,
+//     cgpa: true,
+//     name: true,
+//     regNo: true,
+//     rollNo: true,
+//     year: true,
+//   })
+//   .extend({
+//     staffEmail: z.string().email(),
+//   });
+
+// Bulk upload students
+// export const bulkuploadstudents = createRoute({
+//   path: "/staff/bulkuploadstudents",
+//   method: "post",
+//   request: {
+//     body: jsonContentRequired(
+//       z.array(insertStudentsSchema),
+//       "Add multiple students",
+//     ),
+//   },
+//   responses: {
+//     [HttpStatusCodes.OK]: jsonContent(
+//       z.array(selectStudentSchema),
+//       "Created many students",
+//     ),
+//     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+//       createErrorSchema(insertStudentsSchema),
+//       "The validation error(s)",
+//     ),
+//   },
+// });
+
+
+export const bulkuploadstudents = createRoute({
+  path: "/staff/bulkuploadstudents",
+  method: "post",
+  request: {
+    body: jsonContentRequired(
+      z.array(insertStudentSchema),
+      "Add multiple students"
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.array(selectStudentSchema),
+      "Created many students"
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(insertStudentSchema),
+      "The validation error(s)"
+    ),
+  },
+});
+
+
+
+const placedStudentsSchema = createInsertSchema(students)
   .required({
     email: true,
-    password: true,
-  })
-  .omit({
+  }).omit({
     studentId: true,
     userId: true,
     department: true,
@@ -263,33 +336,32 @@ export const insertStudentsSchema = createInsertSchema(students)
     name: true,
     regNo: true,
     rollNo: true,
-    year: true,
+    batch: true, password: true
   })
-  .extend({
-    staffEmail: z.string().email(),
-  });
 
-// Bulk upload students
-export const bulkuploadstudents = createRoute({
-  path: "/staff/bulkuploadstudents",
+export const placedstudents = createRoute({
+  path: "/staff/updateplacedstudentslist",
   method: "post",
   request: {
     body: jsonContentRequired(
-      z.array(insertStudentsSchema),
-      "Add multiple students",
-    ),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.array(selectStudentSchema),
-      "Created many students",
+      z.array(placedStudentsSchema), "Updated status"
+    )
+  }, responses: {
+    [HttpStatusCodes.OK]: {
+      description: "Updated placed students list"
+    },
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createErrorSchema(loginStaffSchema),
+      "Unauthorized access - Token required"
     ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      createErrorSchema(insertStudentsSchema),
+      createErrorSchema(placedStudentsSchema),
       "The validation error(s)",
     ),
   },
-});
+})
+
+export type PlacedStudentsRoute = typeof placedstudents;
 
 export type LoginStaffRoute = typeof loginStaff;
 export type GetOneRoute = typeof getOne;

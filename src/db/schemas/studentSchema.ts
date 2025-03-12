@@ -3,8 +3,8 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { staff } from "./staffSchema";
 
-export const applied_or_not = pgEnum("applied_or_not", ['yes', 'no', 'partial'])
-export const placed_or_not = pgEnum("placed_or_not", ['yes', 'no'])
+export const applied_or_not = pgEnum("applied_or_not", ['yes', 'no', 'partial']);
+export const placed_or_not = pgEnum("placed_or_not", ['yes', 'no']);
 
 export const students = pgTable('students', {
   staffId: uuid('staff_id').references(() => staff.staffId).notNull(),
@@ -20,7 +20,7 @@ export const students = pgTable('students', {
   tenthMark: doublePrecision('tenth_mark'),
   twelfthMark: doublePrecision('twelfth_mark'),
   cgpa: doublePrecision('cgpa'),
-  batch: text(''),
+  batch: text('batch'), // Fixed column name from text('')
   linkedinUrl: text('linkedin_url'),
   githubUrl: text('github_url'),
   regNo: text('reg_no').unique(),
@@ -31,10 +31,8 @@ export const students = pgTable('students', {
   uniqueEmail: unique().on(students.email),
 }));
 
-// Schema for selecting student records
 export const selectStudentSchema = createSelectSchema(students);
 
-// Schema for inserting new student records
 export const insertStudentSchema = createInsertSchema(students).required({
   email: true,
   password: true,
@@ -42,7 +40,7 @@ export const insertStudentSchema = createInsertSchema(students).required({
   studentId: true,
   userId: true,
   department: true,
-  placedStatus:true,
+  placedStatus: true,
   staffId: true,
   skillSet: true,
   languagesKnown: true,
@@ -55,14 +53,9 @@ export const insertStudentSchema = createInsertSchema(students).required({
   cgpa: true,
   name: true,
   regNo: true,
-  rollNo: true, //how to extract rollNo from email
-  batch: true
+  rollNo: true,
+  // Removed batch from omit to allow it
 });
-
-
-
-
-
 
 export const insertResumeSchema = createInsertSchema(students).required({
   skillSet: true,
@@ -80,20 +73,13 @@ export const insertResumeSchema = createInsertSchema(students).required({
   regNo: true, name: true,
   rollNo: true,
   email: true, password: true, staffId: true, studentId: true, userId: true, 
-})
-
-
-
-
+});
 
 export const loginStudentSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6)
-})
+});
 
-
-
-// Schema for deleting a student record
 export const deleteStudentSchema = z.object({
   studentId: z.string().uuid(),
 });
