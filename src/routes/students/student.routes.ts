@@ -96,6 +96,28 @@ const updatePasswordSchema = z.object({
 });
 
 
+export const getResume = createRoute({
+    path: "/student/resume",
+    method: "get",
+    responses: {
+      [HttpStatusCodes.OK]: jsonContent(
+        selectStudentSchema,
+        "The requested student resume details"
+      ),
+      [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+        createErrorSchema(selectStudentSchema),
+        "Unauthorized access - Token required"
+      ),
+      [HttpStatusCodes.NOT_FOUND]: jsonContent(
+        notFoundSchema,
+        "Student not found"
+      ),
+    },
+    middlewares: [supabaseMiddleware],
+  });
+  
+
+
 export const updatepassword = createRoute({
     path: "/student/updatepassword",
     method: "patch",
@@ -176,6 +198,42 @@ export const applyfordrive = createRoute({
 });
 
 
+
+
+
+export const updateResume = createRoute({
+    path: "/student/resume",
+    method: "patch",
+    request: {
+      body: jsonContentRequired(
+        z.object({}).passthrough(), // Allow any fields
+        "Update specific resume details"
+      ),
+    },
+    responses: {
+      [HttpStatusCodes.OK]: jsonContent(
+        selectStudentSchema,
+        "Updated student resume details"
+      ),
+      [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+        createErrorSchema(z.object({})),
+        "Invalid update details"
+      ),
+      [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+        z.object({ error: z.string() }),
+        "Unauthorized access"
+      ),
+      [HttpStatusCodes.NOT_FOUND]: jsonContent(
+        notFoundSchema,
+        "Student not found"
+      ),
+    },
+    middlewares: [supabaseMiddleware],
+  });
+  
+  
+export type GetResumeRoute = typeof getResume;
+export type UpdateResumeRoute = typeof updateResume;
 export type LoginStudentRoute = typeof loginStudent
 export type GetOneRoute = typeof getOne;
 export type CreateResumeRoute = typeof createresume

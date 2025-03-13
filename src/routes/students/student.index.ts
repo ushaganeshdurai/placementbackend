@@ -10,5 +10,6 @@ const router = createRouter()
   .openapi(routes.updatepassword, handlers.updatepassword)
   .openapi(routes.applyfordrive, handlers.applyForDrive)
   .openapi(routes.displayDrives,handlers.displayDrives)
-
+  .openapi(routes.getResume, handlers.getResume) // Add this line
+  .openapi(routes.updateResume, handlers.updateResume) // Add PATCH route
 export default router;

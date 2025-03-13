@@ -158,7 +158,136 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   }
 };
 
-export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
+
+
+
+// export const getResume: AppRouteHandler<GetResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     let studentId: string | null = null;
+//     let userRole: string | null = null;
+
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       console.log("Decoded JWT:", decoded);
+//       if (!decoded || !decoded.id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.id; // Use `id` as studentId
+//       userRole = decoded.role;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     if (userRole !== "student") {
+//       return c.json({ error: "Unauthorized: Insufficient role" }, 403);
+//     }
+
+//     const studentDetails = await db
+//       .select({
+//         name: students.name,
+//         email: students.email,
+//         phoneNumber: students.phoneNumber,
+//         regNo: students.regNo,
+//         department: students.department,
+//         tenthMark: students.tenthMark,
+//         twelfthMark: students.twelfthMark,
+//         cgpa: students.cgpa,
+//         noOfArrears: students.noOfArrears,
+//         skillSet: students.skillSet,
+//         languagesKnown: students.languagesKnown,
+//         linkedinUrl: students.linkedinUrl,
+//         githubUrl: students.githubUrl,
+//         batch: students.batch,
+//       })
+//       .from(students)
+//       .where(eq(students.studentId, studentId))
+//       .limit(1)
+//       .execute();
+
+//     if (studentDetails.length === 0) {
+//       return c.json({ error: "Student not found" }, HttpStatusCodes.NOT_FOUND);
+//     }
+
+//     return c.json(studentDetails[0], HttpStatusCodes.OK);
+//   } catch (error) {
+//     console.error("Resume fetch error:", error);
+//     return c.json({ error: "Something went wrong" }, 500);
+//   }
+// };
+
+
+
+// export const getResume: AppRouteHandler<GetResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     let studentId: string | null = null;
+//     let userRole: string | null = null;
+
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       console.log("Decoded JWT:", decoded);
+//       if (!decoded || !decoded.id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.id; // Use `id` as studentId
+//       userRole = decoded.role;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     if (userRole !== "student") {
+//       return c.json({ error: "Unauthorized: Insufficient role" }, 403);
+//     }
+
+//     const studentDetails = await db
+//       .select({
+//         name: students.name,
+//         email: students.email,
+//         phoneNumber: students.phoneNumber,
+//         regNo: students.regNo,
+//         department: students.department,
+//         tenthMark: students.tenthMark,
+//         twelfthMark: students.twelfthMark,
+//         cgpa: students.cgpa,
+//         noOfArrears: students.noOfArrears,
+//         skillSet: students.skillSet,
+//         languagesKnown: students.languagesKnown,
+//         linkedinUrl: students.linkedinUrl,
+//         githubUrl: students.githubUrl,
+//         batch: students.batch,
+//       })
+//       .from(students)
+//       .where(eq(students.studentId, studentId))
+//       .limit(1)
+//       .execute();
+
+//     if (studentDetails.length === 0) {
+//       return c.json({ error: "Student not found" }, HttpStatusCodes.NOT_FOUND);
+//     }
+
+//     return c.json(studentDetails[0], HttpStatusCodes.OK);
+//   } catch (error) {
+//     console.error("Resume fetch error:", error);
+//     return c.json({ error: "Something went wrong" }, 500);
+//   }
+// };
+
+
+
+export const getResume: AppRouteHandler<GetResumeRoute> = async (c) => {
   try {
     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
     if (!jwtToken) {
@@ -172,48 +301,49 @@ export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
       console.log("Decoded JWT:", decoded);
-      if (!decoded || !decoded.id) {
+      if (!decoded || !decoded.student_id) { // Check student_id instead of id
         return c.json({ error: "Invalid session: Student ID missing" }, 401);
       }
-      studentId = decoded.id; // Use `id` as studentId
+      studentId = decoded.student_id; // Use student_id from JWT
       userRole = decoded.role;
     } catch (error) {
       console.error("Session Verification Error:", error);
       return c.json({ error: "Invalid session" }, 401);
     }
 
-    const resume = c.req.valid("json");
-    if (!resume || typeof resume !== "object") {
-      return c.json({ error: "Invalid resume details" }, 400);
+    if (userRole !== "student") {
+      return c.json({ error: "Unauthorized: Insufficient role" }, 403);
     }
 
-    if (userRole === "student") {
-      const resumeDetails = {
-        phoneNumber: resume.phoneNumber,
-        skillSet: resume.skillSet,
-        noOfArrears: resume.noOfArrears,
-        languagesKnown: resume.languagesKnown,
-        githubUrl: resume.githubUrl,
-        linkedinUrl: resume.linkedinUrl,
-        tengthMark: resume.tenthMark,
-        cgpa: resume.cgpa,
-        batch: resume.batch,
-        department: resume.department,
-        twelfthMark: resume.twelfthMark,
-      };
+    const studentDetails = await db
+      .select({
+        name: students.name,
+        email: students.email,
+        phoneNumber: students.phoneNumber,
+        regNo: students.regNo,
+        department: students.department,
+        tenthMark: students.tenthMark,
+        twelfthMark: students.twelfthMark,
+        cgpa: students.cgpa,
+        noOfArrears: students.noOfArrears,
+        skillSet: students.skillSet,
+        languagesKnown: students.languagesKnown,
+        linkedinUrl: students.linkedinUrl,
+        githubUrl: students.githubUrl,
+        batch: students.batch,
+      })
+      .from(students)
+      .where(eq(students.studentId, studentId))
+      .limit(1)
+      .execute();
 
-      const updatedResume = await db
-        .update(students)
-        .set(resumeDetails)
-        .where(eq(students.studentId, studentId))
-        .returning();
-
-      return c.json(updatedResume, HttpStatusCodes.OK);
+    if (studentDetails.length === 0) {
+      return c.json({ error: "Student not found" }, HttpStatusCodes.NOT_FOUND);
     }
 
-    return c.json({ error: "Unauthorized" }, 403);
+    return c.json(studentDetails[0], HttpStatusCodes.OK);
   } catch (error) {
-    console.error("Resume creation error:", error);
+    console.error("Resume fetch error:", error);
     return c.json({ error: "Something went wrong" }, 500);
   }
 };
@@ -361,5 +491,122 @@ export const applyForDrive: AppRouteHandler<ApplyForDriveRoute> = async (c) => {
   } catch (error) {
     console.error("Application error:", error);
     return c.json({ error: "Something went wrong" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  }
+};
+
+
+
+
+
+
+
+
+
+
+// export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     let studentId: string | null = null;
+//     let userRole: string | null = null;
+
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       console.log("Decoded JWT:", decoded);
+//       if (!decoded || !decoded.id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.id;
+//       userRole = decoded.role;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     const resume = c.req.valid("json");
+//     if (!resume || typeof resume !== "object") {
+//       return c.json({ error: "Invalid resume details" }, 400);
+//     }
+
+//     if (userRole === "student") {
+//       const resumeDetails = {
+//         phoneNumber: resume.phoneNumber,
+//         skillSet: resume.skillSet,
+//         noOfArrears: resume.noOfArrears,
+//         languagesKnown: resume.languagesKnown,
+//         githubUrl: resume.githubUrl,
+//         linkedinUrl: resume.linkedinUrl,
+//         tenthMark: resume.tenthMark, // Fixed typo from `tengthMark`
+//         cgpa: resume.cgpa,
+//         batch: resume.batch,
+//         department: resume.department,
+//         twelfthMark: resume.twelfthMark,
+//       };
+
+//       const updatedResume = await db
+//         .update(students)
+//         .set(resumeDetails)
+//         .where(eq(students.studentId, studentId))
+//         .returning();
+
+//       return c.json(updatedResume, HttpStatusCodes.OK);
+//     }
+
+//     return c.json({ error: "Unauthorized" }, 403);
+//   } catch (error) {
+//     console.error("Resume creation error:", error);
+//     return c.json({ error: "Something went wrong" }, 500);
+//   }
+// };
+
+
+
+
+export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let studentId: string | null = null;
+    let userRole: string | null = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded || !decoded.id) {
+        return c.json({ error: "Invalid session: Student ID missing" }, 401);
+      }
+      studentId = decoded.id;
+      userRole = decoded.role;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    const updateData = c.req.valid("json");
+    if (!updateData || typeof updateData !== "object") {
+      return c.json({ error: "Invalid update details" }, 400);
+    }
+
+    if (userRole === "student") {
+      const updatedResume = await db
+        .update(students)
+        .set(updateData)
+        .where(eq(students.studentId, studentId))
+        .returning();
+
+      return c.json(updatedResume[0], HttpStatusCodes.OK);
+    }
+
+    return c.json({ error: "Unauthorized" }, 403);
+  } catch (error) {
+    console.error("Resume update error:", error);
+    return c.json({ error: "Something went wrong" }, 500);
   }
 };
