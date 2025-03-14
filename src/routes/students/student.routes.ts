@@ -231,7 +231,73 @@ export const updateResume = createRoute({
     middlewares: [supabaseMiddleware],
   });
   
+
+
+
+
+
+
+
+
+  export const removeApplication = createRoute({
+    path: "/student/remove-application",
+    method: "delete",
+    request: {
+      body: jsonContentRequired(
+        z.object({ id: z.number() }),
+        "Drive ID to remove application"
+      ),
+    },
+    responses: {
+      [HttpStatusCodes.OK]: jsonContent(
+        z.object({ message: z.string() }),
+        "Application removed successfully"
+      ),
+      [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+        z.object({ error: z.string() }),
+        "Unauthorized access"
+      ),
+      [HttpStatusCodes.NOT_FOUND]: jsonContent(
+        notFoundSchema,
+        "Application or drive not found"
+      ),
+    },
+    middlewares: [supabaseMiddleware],
+  });
   
+  
+
+
+
+
+
+
+
+  export const checkApplicationStatus = createRoute({
+    path: "/student/check-application-status/:driveId",
+    method: "get",
+    responses: {
+      [HttpStatusCodes.OK]: jsonContent(
+        z.object({ applied: z.boolean() }),
+        "Whether the student has applied for the drive"
+      ),
+      [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+        z.object({ error: z.string() }),
+        "Unauthorized access"
+      ),
+      [HttpStatusCodes.NOT_FOUND]: jsonContent(
+        notFoundSchema,
+        "Drive not found"
+      ),
+    },
+    middlewares: [supabaseMiddleware],
+  });
+  
+  export type CheckApplicationStatusRoute = typeof checkApplicationStatus;
+
+
+  
+export type RemoveApplicationRoute = typeof removeApplication;
 export type GetResumeRoute = typeof getResume;
 export type UpdateResumeRoute = typeof updateResume;
 export type LoginStudentRoute = typeof loginStudent

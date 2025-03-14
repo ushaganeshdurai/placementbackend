@@ -6,13 +6,15 @@ import bcrypt from 'bcryptjs'
 import type { BulkUploadStudentsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, GetOneRoute, LoginStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
 import { applications, drive, staff, students} from "drizzle/schema";
 import { insertStudentSchema } from "@/db/schemas/studentSchema";
-import { getCookie, setCookie } from "hono/cookie";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 import { z } from "zod";
 
 
 // login the staff
 export const loginStaff: AppRouteHandler<LoginStaffRoute> = async (c) => {
+  deleteCookie(c, "student_session");
+  deleteCookie(c, "admin_session");
   const { email, password } = c.req.valid("json");
 
   const queryStaff = await db
@@ -124,7 +126,7 @@ export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) =>
         newJobs.map(async (job) => ({
           batch: job.batch,
           jobDescription: job.jobDescription,
-          department: job.department ? [job.department] : null,
+          department: job.department,
           driveLink: job.driveLink,
           expiration: job.expiration, //format: mm/dd/yyyy, --:--:-- --
           companyName: job.companyName,

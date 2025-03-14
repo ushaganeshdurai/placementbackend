@@ -6,11 +6,13 @@ import bcrypt from 'bcryptjs'
 import { applications, drive, students, superAdmin } from "drizzle/schema";
 import type { BulkUploadStudentsRoute, CreateJobsRoute, CreateStaffsRoute, GetOneRoute, LoginSuperAdmin, RegisteredStudentsRoute, RemoveDriveRoute, RemoveStaffRoute } from "./superadmin.routes";
 import { staff } from "drizzle/schema";
-import { getCookie, setCookie } from "hono/cookie";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 
 // Login the admin
 export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
+   deleteCookie(c, "student_session");
+    deleteCookie(c, "staff_session");
   const { email, password } = c.req.valid("json");
 
   const queryAdmin = await db

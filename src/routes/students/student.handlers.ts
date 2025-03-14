@@ -7,10 +7,11 @@ import type { ApplyForDriveRoute, CreateResumeRoute, DisplayDrivesRoute, GetOneR
 import { students, applications, drive } from "drizzle/schema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
-import { z } from "zod";
 
 
 export const loginStudent: AppRouteHandler<LoginStudentRoute> = async (c) => {
+  deleteCookie(c, "staff_session");
+  deleteCookie(c, "admin_session");
   const { email, password } = c.req.valid("json");
 
   const queryStudent = await db
@@ -37,7 +38,7 @@ export const loginStudent: AppRouteHandler<LoginStudentRoute> = async (c) => {
 
   const SECRET_KEY = process.env.SECRET_KEY!;
   const payload = {
-    id: queried_student.userId || queried_student.studentId, // Use userId if present, else studentId
+    id: queried_student.userId, // Use userId if present, else studentId
     student_id: queried_student.studentId, // Always include student_id for manual login
     role: "student",
     email: queried_student.email,
@@ -153,149 +154,23 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       student: student_details[0], // Includes email
     }, 200);
   } catch (error) {
-    console.error("Database query error:", error.message);
+    console.error("Database query error:", error);
     return c.json({ error: "Failed to fetch data" }, 500);
   }
 };
 
 
-
-
-// export const getResume: AppRouteHandler<GetResumeRoute> = async (c) => {
-//   try {
-//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
-//     if (!jwtToken) {
-//       return c.json({ error: "Unauthorized: No session found" }, 401);
-//     }
-
-//     let studentId: string | null = null;
-//     let userRole: string | null = null;
-
-//     const SECRET_KEY = process.env.SECRET_KEY!;
-//     try {
-//       const decoded = await verify(jwtToken, SECRET_KEY);
-//       console.log("Decoded JWT:", decoded);
-//       if (!decoded || !decoded.id) {
-//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
-//       }
-//       studentId = decoded.id; // Use `id` as studentId
-//       userRole = decoded.role;
-//     } catch (error) {
-//       console.error("Session Verification Error:", error);
-//       return c.json({ error: "Invalid session" }, 401);
-//     }
-
-//     if (userRole !== "student") {
-//       return c.json({ error: "Unauthorized: Insufficient role" }, 403);
-//     }
-
-//     const studentDetails = await db
-//       .select({
-//         name: students.name,
-//         email: students.email,
-//         phoneNumber: students.phoneNumber,
-//         regNo: students.regNo,
-//         department: students.department,
-//         tenthMark: students.tenthMark,
-//         twelfthMark: students.twelfthMark,
-//         cgpa: students.cgpa,
-//         noOfArrears: students.noOfArrears,
-//         skillSet: students.skillSet,
-//         languagesKnown: students.languagesKnown,
-//         linkedinUrl: students.linkedinUrl,
-//         githubUrl: students.githubUrl,
-//         batch: students.batch,
-//       })
-//       .from(students)
-//       .where(eq(students.studentId, studentId))
-//       .limit(1)
-//       .execute();
-
-//     if (studentDetails.length === 0) {
-//       return c.json({ error: "Student not found" }, HttpStatusCodes.NOT_FOUND);
-//     }
-
-//     return c.json(studentDetails[0], HttpStatusCodes.OK);
-//   } catch (error) {
-//     console.error("Resume fetch error:", error);
-//     return c.json({ error: "Something went wrong" }, 500);
-//   }
-// };
-
-
-
-// export const getResume: AppRouteHandler<GetResumeRoute> = async (c) => {
-//   try {
-//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
-//     if (!jwtToken) {
-//       return c.json({ error: "Unauthorized: No session found" }, 401);
-//     }
-
-//     let studentId: string | null = null;
-//     let userRole: string | null = null;
-
-//     const SECRET_KEY = process.env.SECRET_KEY!;
-//     try {
-//       const decoded = await verify(jwtToken, SECRET_KEY);
-//       console.log("Decoded JWT:", decoded);
-//       if (!decoded || !decoded.id) {
-//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
-//       }
-//       studentId = decoded.id; // Use `id` as studentId
-//       userRole = decoded.role;
-//     } catch (error) {
-//       console.error("Session Verification Error:", error);
-//       return c.json({ error: "Invalid session" }, 401);
-//     }
-
-//     if (userRole !== "student") {
-//       return c.json({ error: "Unauthorized: Insufficient role" }, 403);
-//     }
-
-//     const studentDetails = await db
-//       .select({
-//         name: students.name,
-//         email: students.email,
-//         phoneNumber: students.phoneNumber,
-//         regNo: students.regNo,
-//         department: students.department,
-//         tenthMark: students.tenthMark,
-//         twelfthMark: students.twelfthMark,
-//         cgpa: students.cgpa,
-//         noOfArrears: students.noOfArrears,
-//         skillSet: students.skillSet,
-//         languagesKnown: students.languagesKnown,
-//         linkedinUrl: students.linkedinUrl,
-//         githubUrl: students.githubUrl,
-//         batch: students.batch,
-//       })
-//       .from(students)
-//       .where(eq(students.studentId, studentId))
-//       .limit(1)
-//       .execute();
-
-//     if (studentDetails.length === 0) {
-//       return c.json({ error: "Student not found" }, HttpStatusCodes.NOT_FOUND);
-//     }
-
-//     return c.json(studentDetails[0], HttpStatusCodes.OK);
-//   } catch (error) {
-//     console.error("Resume fetch error:", error);
-//     return c.json({ error: "Something went wrong" }, 500);
-//   }
-// };
-
-
-
 export const getResume: AppRouteHandler<GetResumeRoute> = async (c) => {
+  deleteCookie(c, "staff_session");
+  deleteCookie(c, "admin_session");
   try {
     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found" }, 401);
     }
 
-    let studentId: string | null = null;
-    let userRole: string | null = null;
+    let studentId = null;
+    let userRole = null;
 
     const SECRET_KEY = process.env.SECRET_KEY!;
     try {
@@ -349,6 +224,8 @@ export const getResume: AppRouteHandler<GetResumeRoute> = async (c) => {
 };
 
 export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {
+  deleteCookie(c, "staff_session");
+  deleteCookie(c, "admin_session");
   try {
     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
     if (!jwtToken) {
@@ -403,6 +280,8 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
 };
 
 export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
+  deleteCookie(c, "staff_session");
+  deleteCookie(c, "admin_session");
   const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
 
   if (!jwtToken) {
@@ -444,22 +323,132 @@ export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
   }
 };
 
+
+export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let studentId: string | null = null;
+    let userRole: string | null = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      console.log("Decoded JWT:", decoded);
+      if (!decoded || !decoded.id) {
+        return c.json({ error: "Invalid session: Student ID missing" }, 401);
+      }
+      studentId = decoded.id;
+      userRole = decoded.role;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    const resume = c.req.valid("json");
+    if (!resume || typeof resume !== "object") {
+      return c.json({ error: "Invalid resume details" }, 400);
+    }
+
+    if (userRole === "student") {
+      const resumeDetails = {
+        phoneNumber: resume.phoneNumber,
+        skillSet: resume.skillSet,
+        noOfArrears: resume.noOfArrears,
+        languagesKnown: resume.languagesKnown,
+        githubUrl: resume.githubUrl,
+        linkedinUrl: resume.linkedinUrl,
+        tenthMark: resume.tenthMark,
+        cgpa: resume.cgpa,
+        batch: resume.batch,
+        department: resume.department,
+        twelfthMark: resume.twelfthMark,
+      };
+
+      const updatedResume = await db
+        .update(students)
+        .set(resumeDetails)
+        .where(eq(students.studentId, studentId))
+        .returning();
+
+      return c.json(updatedResume, HttpStatusCodes.OK);
+    }
+
+    return c.json({ error: "Unauthorized" }, 403);
+  } catch (error) {
+    console.error("Resume creation error:", error);
+    return c.json({ error: "Something went wrong" }, 500);
+  }
+};
+
+
+export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let studentId: string = null;
+    let userRole: string = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded || !decoded.id || !decoded.student_id) {
+        return c.json({ error: "Invalid session: Student ID missing" }, 401);
+      }
+      studentId = decoded.student_id || decoded.id;
+      userRole = decoded.role;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    const updateData = c.req.valid("json");
+    if (!updateData || typeof updateData !== "object") {
+      return c.json({ error: "Invalid update details" }, 400);
+    }
+
+    if (userRole === "student") {
+      const updatedResume = await db
+        .update(students)
+        .set(updateData)
+        .where(eq(students.studentId, studentId))
+        .returning();
+
+      return c.json(updatedResume[0], HttpStatusCodes.OK);
+    }
+
+    return c.json({ error: "Unauthorized" }, 403);
+  } catch (error) {
+    console.error("Resume update error:", error);
+    return c.json({ error: "Something went wrong" }, 500);
+  }
+};
+
+
 export const applyForDrive: AppRouteHandler<ApplyForDriveRoute> = async (c) => {
+  deleteCookie(c, "staff_session");
+  deleteCookie(c, "admin_session");
   try {
     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found" }, HttpStatusCodes.UNAUTHORIZED);
     }
 
-    let studentId: string | null = null;
+    let studentId = null;
     const SECRET_KEY = process.env.SECRET_KEY!;
 
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
-      if (!decoded || !decoded.id) {
+      if (!decoded || !decoded.student_id) {
         return c.json({ error: "Invalid session: Student ID missing" }, HttpStatusCodes.UNAUTHORIZED);
       }
-      studentId = decoded.id; // Use `id` as studentId
+      studentId = decoded.student_id as string; // Use `student_id` from JWT
     } catch (error) {
       console.error("Session Verification Error:", error);
       return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
@@ -501,112 +490,78 @@ export const applyForDrive: AppRouteHandler<ApplyForDriveRoute> = async (c) => {
 
 
 
+export const removeApplication: AppRouteHandler<RemoveApplicationRoute> = async (c) => {
+  deleteCookie(c, "staff_session");
+  deleteCookie(c, "admin_session");
 
-
-// export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
-//   try {
-//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
-//     if (!jwtToken) {
-//       return c.json({ error: "Unauthorized: No session found" }, 401);
-//     }
-
-//     let studentId: string | null = null;
-//     let userRole: string | null = null;
-
-//     const SECRET_KEY = process.env.SECRET_KEY!;
-//     try {
-//       const decoded = await verify(jwtToken, SECRET_KEY);
-//       console.log("Decoded JWT:", decoded);
-//       if (!decoded || !decoded.id) {
-//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
-//       }
-//       studentId = decoded.id;
-//       userRole = decoded.role;
-//     } catch (error) {
-//       console.error("Session Verification Error:", error);
-//       return c.json({ error: "Invalid session" }, 401);
-//     }
-
-//     const resume = c.req.valid("json");
-//     if (!resume || typeof resume !== "object") {
-//       return c.json({ error: "Invalid resume details" }, 400);
-//     }
-
-//     if (userRole === "student") {
-//       const resumeDetails = {
-//         phoneNumber: resume.phoneNumber,
-//         skillSet: resume.skillSet,
-//         noOfArrears: resume.noOfArrears,
-//         languagesKnown: resume.languagesKnown,
-//         githubUrl: resume.githubUrl,
-//         linkedinUrl: resume.linkedinUrl,
-//         tenthMark: resume.tenthMark, // Fixed typo from `tengthMark`
-//         cgpa: resume.cgpa,
-//         batch: resume.batch,
-//         department: resume.department,
-//         twelfthMark: resume.twelfthMark,
-//       };
-
-//       const updatedResume = await db
-//         .update(students)
-//         .set(resumeDetails)
-//         .where(eq(students.studentId, studentId))
-//         .returning();
-
-//       return c.json(updatedResume, HttpStatusCodes.OK);
-//     }
-
-//     return c.json({ error: "Unauthorized" }, 403);
-//   } catch (error) {
-//     console.error("Resume creation error:", error);
-//     return c.json({ error: "Something went wrong" }, 500);
-//   }
-// };
-
-
-
-
-export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
-  try {
-    const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
-    if (!jwtToken) {
-      return c.json({ error: "Unauthorized: No session found" }, 401);
-    }
-
-    let studentId: string | null = null;
-    let userRole: string | null = null;
-
-    const SECRET_KEY = process.env.SECRET_KEY!;
-    try {
-      const decoded = await verify(jwtToken, SECRET_KEY);
-      if (!decoded || !decoded.id) {
-        return c.json({ error: "Invalid session: Student ID missing" }, 401);
-      }
-      studentId = decoded.id;
-      userRole = decoded.role;
-    } catch (error) {
-      console.error("Session Verification Error:", error);
-      return c.json({ error: "Invalid session" }, 401);
-    }
-
-    const updateData = c.req.valid("json");
-    if (!updateData || typeof updateData !== "object") {
-      return c.json({ error: "Invalid update details" }, 400);
-    }
-
-    if (userRole === "student") {
-      const updatedResume = await db
-        .update(students)
-        .set(updateData)
-        .where(eq(students.studentId, studentId))
-        .returning();
-
-      return c.json(updatedResume[0], HttpStatusCodes.OK);
-    }
-
-    return c.json({ error: "Unauthorized" }, 403);
-  } catch (error) {
-    console.error("Resume update error:", error);
-    return c.json({ error: "Something went wrong" }, 500);
+  const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found" }, HttpStatusCodes.UNAUTHORIZED);
   }
+
+  let studentId = null;
+  const SECRET_KEY = process.env.SECRET_KEY!;
+  try {
+    const decoded = await verify(jwtToken, SECRET_KEY);
+    if (!decoded || !decoded.student_id) {
+      return c.json({ error: "Invalid session: Student ID missing" }, HttpStatusCodes.UNAUTHORIZED);
+    }
+    studentId = decoded.student_id;
+  } catch (error) {
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
+  }
+
+  const { id } = c.req.valid("json");
+  const deleted = await db
+    .delete(applications)
+    .where(and(eq(applications.studentId, studentId), eq(applications.driveId, id)))
+    .returning();
+
+  if (deleted.length === 0) {
+    return c.json({ error: "Application not found" }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: "Application removed successfully" }, HttpStatusCodes.OK);
+};
+
+
+
+
+export const checkApplicationStatus: AppRouteHandler<CheckApplicationStatusRoute> = async (c) => {
+  deleteCookie(c, "staff_session");
+  deleteCookie(c, "admin_session");
+
+  const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found" }, HttpStatusCodes.UNAUTHORIZED);
+  }
+
+  let studentId = null;
+  const SECRET_KEY = process.env.SECRET_KEY!;
+  try {
+    const decoded = await verify(jwtToken, SECRET_KEY);
+    console.log("JWT Decoded:", decoded);
+    if (!decoded || !decoded.student_id) {
+      return c.json({ error: "Invalid session: Student ID missing" }, HttpStatusCodes.UNAUTHORIZED);
+    }
+    studentId = decoded.student_id;
+  } catch (error) {
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
+  }
+
+  const { driveId } = c.req.param();
+  console.log(`Checking application - studentId: ${studentId}, driveId: ${driveId}`);
+  const existingApplication = await db
+    .select()
+    .from(applications)
+    .where(and(eq(applications.studentId, studentId), eq(applications.driveId, parseInt(driveId))))
+    .limit(1)
+    .execute();
+  console.log("Query Result:", existingApplication);
+
+  const applied = existingApplication.length > 0;
+  console.log(`Result for drive ${driveId}: applied = ${applied}`);
+  return c.json({ applied }, HttpStatusCodes.OK);
 };
