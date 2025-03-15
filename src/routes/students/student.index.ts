@@ -13,5 +13,6 @@ const router = createRouter()
   .openapi(routes.getResume, handlers.getResume) // Add this line
   .openapi(routes.updateResume, handlers.updateResume) // Add PATCH route
   .openapi(routes.removeApplication, handlers.removeApplication) // Must be here
-  .openapi(routes.checkApplicationStatus, handlers.checkApplicationStatus); // Add this line
+  .openapi(routes.checkApplicationStatus, handlers.checkApplicationStatus) // Add this line
+  .openapi(routes.registration, handlers.registration)
 export default router;

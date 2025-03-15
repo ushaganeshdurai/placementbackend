@@ -22,10 +22,11 @@ export const selectStaffSchema = createSelectSchema(staff);
 export const insertStaffSchema = createInsertSchema(staff).required({
   email: true,
   password: true,
+  department: true,
+
 }).omit({
   staffId: true,
   userId:true,
-  department: true,
   name: true
 });
 

@@ -293,9 +293,49 @@ export const updateResume = createRoute({
     middlewares: [supabaseMiddleware],
   });
   
-  export type CheckApplicationStatusRoute = typeof checkApplicationStatus;
 
 
+
+
+
+
+
+export const registerStudentSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(6),
+    staffEmail: z.string().email()
+
+})
+
+export const registration = createRoute({
+    path: "/student/signup",
+    method: "post",
+    request: {
+        body: jsonContentRequired(registerStudentSchema, "The student's registration credentials"),
+    },
+    responses: {
+        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+            { message: "Invalid credentials" },
+            "Unauthorized access"
+        ),
+        [HttpStatusCodes.MOVED_TEMPORARILY]: {
+            description: "Redirect to the student's page",
+            headers: {
+                Location: {
+                    schema: {
+                        type: 'string',
+                    },
+                },
+            },
+        },
+    },
+    middleware: [supabaseMiddleware] as const
+});
+
+
+export type RegStudentRoute = typeof registration;
+
+export type CheckApplicationStatusRoute = typeof checkApplicationStatus;
   
 export type RemoveApplicationRoute = typeof removeApplication;
 export type GetResumeRoute = typeof getResume;

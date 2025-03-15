@@ -126,3 +126,5 @@ export const superAdmin = pgTable("super_admin", {
 	unique("super_admin_email_key").on(table.email),
 	unique("super_admin_user_id_key").on(table.userId),
 ]);
+
+
