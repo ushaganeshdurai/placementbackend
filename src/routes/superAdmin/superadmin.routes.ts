@@ -296,6 +296,23 @@ export const getJobsWithStudentsRoute = createRoute({
 });
 
 
+export const logoutAdmin = createRoute({
+  path: "/superadmin/logout",
+  method: "post",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      { message: "Logged out successfully" },
+      "Successful logout"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      { message: "No active session" },
+      "Unauthorized access"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
+
+export type LogoutAdminRoute = typeof logoutAdmin;
 
 export type GetJobsWithStudentsRoute = typeof getJobsWithStudentsRoute;
 

@@ -14,6 +14,8 @@ import type {
   RegisteredStudentsRoute,
   RemoveDriveRoute,
   RemoveStaffRoute,
+  LogoutAdminRoute
+
 } from "./superadmin.routes";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
@@ -56,6 +58,68 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
 };
 
 // Get Super Admin Dashboard Data
+// export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
+//   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+
+//   if (!jwtToken) {
+//     return c.json({ error: "Unauthorized: No session found" }, 401);
+//   }
+
+//   let userId = null;
+//   let userRole = null;
+//   let email = null;
+
+//   try {
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     const decoded = await verify(jwtToken, SECRET_KEY);
+//     if (!decoded) throw new Error("Invalid session");
+//     userId = decoded.id;
+//     userRole = decoded.role;
+//     email = decoded.email;
+//     console.log("JWT Token:", jwtToken);
+//   } catch (error) {
+//     if (error === "TokenExpiredError") {
+//       return c.json({ error: "Session expired" }, 401);
+//     }
+//     console.error("Session Verification Error:", error);
+//     return c.json({ error: "Invalid session" }, 401);
+//   }
+
+//   if (userRole !== "super_admin") {
+//     return c.json({ error: "Unauthorized: Insufficient role" }, 403);
+//   }
+
+//   try {
+//     const staffList = await db
+//       .select({
+//         staffId: staff.staffId,
+//         userId: staff.userId,
+//         email: staff.email,
+//         name: staff.name,
+//         department: staff.department,
+//       })
+//       .from(staff)
+//       .execute();
+
+//     console.log("Fetched staff list:", staffList);
+
+//     return c.json(
+//       {
+//         success: true,
+//         userId,
+//         role: userRole,
+//         email,
+//         staff: staffList,
+//       },
+//       200
+//     );
+//   } catch (error) {
+//     console.error("Database query error:", error);
+//     return c.json({ error: "Failed to fetch data" }, 500);
+//   }
+// };
+
+
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
 
@@ -76,7 +140,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     email = decoded.email;
     console.log("JWT Token:", jwtToken);
   } catch (error) {
-    if (error === "TokenExpiredError") {
+    if (error.name === "TokenExpiredError") { // Correct error check
       return c.json({ error: "Session expired" }, 401);
     }
     console.error("Session Verification Error:", error);
@@ -88,6 +152,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   }
 
   try {
+    // Fetch staff data
     const staffList = await db
       .select({
         staffId: staff.staffId,
@@ -99,7 +164,20 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       .from(staff)
       .execute();
 
+    // Fetch students data (adjust fields based on your students table schema)
+    const studentList = await db
+      .select({
+        studentId: students.studentId, // Adjust to match your schema
+        email: students.email,
+        name: students.name,
+        batch: students.batch,
+        department: students.department,
+      })
+      .from(students)
+      .execute();
+
     console.log("Fetched staff list:", staffList);
+    console.log("Fetched student list:", studentList);
 
     return c.json(
       {
@@ -108,6 +186,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
         role: userRole,
         email,
         staff: staffList,
+        students: studentList, // Add students to the response
       },
       200
     );
@@ -116,6 +195,8 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     return c.json({ error: "Failed to fetch data" }, 500);
   }
 };
+
+
 
 // Add Staff
 export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
@@ -580,4 +661,24 @@ export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = as
     console.error("Database query error:", error);
     return c.json({ error: "Failed to fetch jobs", success: false }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
+};
+
+
+
+export const logoutAdmin: AppRouteHandler<LogoutAdminRoute> = async (c) => {
+  const jwtToken = getCookie(c, "admin_session");
+
+  if (!jwtToken) {
+    return c.json({ message: "No active session" }, HttpStatusCodes.UNAUTHORIZED);
+  }
+
+  // Clear the admin_session cookie
+  deleteCookie(c, "admin_session", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Lax",
+    path: "/",
+  });
+
+  return c.json({ message: "Logged out successfully" }, HttpStatusCodes.OK);
 };
