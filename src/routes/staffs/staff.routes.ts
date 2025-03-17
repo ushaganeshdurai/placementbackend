@@ -215,6 +215,33 @@ export const displayDrives = createRoute({
 });
 
 // See all the students who have registered for a specific drive
+// export const registeredStudents = createRoute({
+//   path: "/staff/registeredstudents/{driveId}",
+//   method: "get",
+//   request: {
+//     params: z.object({
+//       driveId: z.string().transform((val) => Number(val)), // Coerce to number
+//     }),
+//   },
+//   responses: {
+//     [HttpStatusCodes.OK]: jsonContent(
+//       z.array(selectApplicationsSchema),
+//       "The requested applicant list for a specific drive"
+//     ),
+//     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+//       createErrorSchema(selectApplicationsSchema),
+//       "Unauthorized access - Token required"
+//     ),
+//     [HttpStatusCodes.NOT_FOUND]: jsonContent(
+//       notFoundSchema,
+//       "No registrations for this drive"
+//     ),
+//   },
+//   middlewares: [supabaseMiddleware],
+// });
+
+
+
 export const registeredStudents = createRoute({
   path: "/staff/registeredstudents/{driveId}",
   method: "get",
@@ -228,17 +255,11 @@ export const registeredStudents = createRoute({
       z.array(selectApplicationsSchema),
       "The requested applicant list for a specific drive"
     ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createErrorSchema(selectApplicationsSchema),
-      "Unauthorized access - Token required"
-    ),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      notFoundSchema,
-      "No registrations for this drive"
-    ),
+    // ... other responses
   },
   middlewares: [supabaseMiddleware],
 });
+
 
 // export const insertStudentsSchema = createInsertSchema(students)
 //   .required({
@@ -361,8 +382,26 @@ export const placedstudents = createRoute({
   },
 })
 
-export type PlacedStudentsRoute = typeof placedstudents;
 
+export const logoutStaff = createRoute({
+  path: "/staff/logout",
+  method: "post",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      { message: "Logged out successfully" },
+      "Successful logout"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      { message: "No active session" },
+      "Unauthorized access"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
+
+
+export type PlacedStudentsRoute = typeof placedstudents;
+export type LogoutStaffRoute = typeof logoutStaff;
 export type LoginStaffRoute = typeof loginStaff;
 export type GetOneRoute = typeof getOne;
 export type CreateStudentsRoute = typeof createstudentsroute;

@@ -289,8 +289,16 @@ export const oauthSuccess: AppRouteHandler<OAuthSuccessRoute> = async (c) => {
                     "oauth_session"; // Used for super_admin
   setCookie(c, cookieName, sessionToken, {
     httpOnly: true,
-    secure: false, // Set to true in production
-    sameSite: "Lax",
+    secure: true, // Set to true in production
+    sameSite: "None",
+    path: "/",
+    maxAge: 3600,
+    domain: "localhost",
+  });
+  setCookie(c, cookieName, sessionToken, {
+    httpOnly: true,
+    secure: true, // Set to true in production
+    sameSite: "None",
     path: "/",
     maxAge: 3600,
     domain: "localhost",

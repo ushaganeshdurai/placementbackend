@@ -332,6 +332,21 @@ export const registration = createRoute({
     middleware: [supabaseMiddleware] as const
 });
 
+export const logoutStudent = createRoute({
+  path: "/student/logout",
+  method: "post",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      { message: "Logged out successfully" },
+      "Successful logout"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      { message: "No active session" },
+      "Unauthorized access"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
 
 export type RegStudentRoute = typeof registration;
 
@@ -346,3 +361,4 @@ export type CreateResumeRoute = typeof createresume
 export type UpdatePasswordRoute = typeof updatepassword
 export type ApplyForDriveRoute = typeof applyfordrive
 export type DisplayDrivesRoute = typeof displayDrives
+export type LogoutStudentRoute = typeof logoutStudent

@@ -20,9 +20,6 @@ const routes = [
 ] as const;
 
 
-
-//Yet to add staff, students cors
-// app.use('/*', cors({ origin: 'http://localhost:5173' }));
 app.use(
   cors({
     origin: 'http://localhost:5173',

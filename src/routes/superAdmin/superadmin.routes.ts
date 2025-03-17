@@ -312,10 +312,10 @@ export const logoutAdmin = createRoute({
   middlewares: [supabaseMiddleware],
 });
 
+
+
 export type LogoutAdminRoute = typeof logoutAdmin;
-
 export type GetJobsWithStudentsRoute = typeof getJobsWithStudentsRoute;
-
 // superadmin.routes.ts
 export type LoginSuperAdmin = typeof loginAdmin
 export type GetOneRoute = typeof getOne;

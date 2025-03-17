@@ -579,3 +579,14 @@ export const checkApplicationStatus: AppRouteHandler<CheckApplicationStatusRoute
   console.log(`Result for drive ${driveId}: applied = ${applied}`);
   return c.json({ applied }, HttpStatusCodes.OK);
 };
+
+
+export const logoutStudent: AppRouteHandler<LogoutStudentRoute> = async (c) => {
+  const jwtoken = getCookie(c, "student_session")
+  if (!jwtoken) {
+    return c.json({ error: "No session found" }, 401);
+  } else {
+    deleteCookie(c, "student_session");
+  }
+  return c.json({ message: "Logged out successfully" }, HttpStatusCodes.OK);
+};

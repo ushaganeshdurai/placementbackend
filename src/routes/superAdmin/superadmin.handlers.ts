@@ -19,6 +19,7 @@ import type {
 } from "./superadmin.routes";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
+import { oauth } from "../auth/auth.routes";
 
 // Login the admin
 export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
@@ -667,18 +668,29 @@ export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = as
 
 export const logoutAdmin: AppRouteHandler<LogoutAdminRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session");
-
-  if (!jwtToken) {
+  const oauthToken = getCookie(c, "oauth_session");
+  console.log(jwtToken);
+  console.log("Trying to logout",oauthToken);
+  if (!jwtToken && !oauthToken) {
     return c.json({ message: "No active session" }, HttpStatusCodes.UNAUTHORIZED);
   }
-
-  // Clear the admin_session cookie
-  deleteCookie(c, "admin_session", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Lax",
-    path: "/",
-  });
+  if (jwtToken) {
+    // Clear the admin_session cookie
+    deleteCookie(c, "admin_session", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Lax",
+      path: "/",
+    });
+  }
+  else if (oauthToken) {
+    deleteCookie(c, "oauth_session", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      path: "/",
+    });
+  }
 
   return c.json({ message: "Logged out successfully" }, HttpStatusCodes.OK);
 };

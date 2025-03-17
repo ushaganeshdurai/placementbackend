@@ -15,4 +15,5 @@ const router = createRouter()
   .openapi(routes.removeApplication, handlers.removeApplication) // Must be here
   .openapi(routes.checkApplicationStatus, handlers.checkApplicationStatus) // Add this line
   .openapi(routes.registration, handlers.registration)
+  .openapi(routes.logoutStudent, handlers.logoutStudent);
 export default router;
