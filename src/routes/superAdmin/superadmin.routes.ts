@@ -312,11 +312,43 @@ export const logoutAdmin = createRoute({
   middlewares: [supabaseMiddleware],
 });
 
+export const feedGroupMail = createRoute({
+  path: "/superadmin/feedgroupmail",
+  method: "post",
+  body: jsonContentRequired(
+    z.array(z.string().email()).nonempty(),
+    "List of emails to be added"
+  ),
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.array(
+        z.object({
+          id: z.number(),
+          email: z.string().email(),
+        })
+      ),
+      "Successfully added emails"
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createErrorSchema(z.object({ error: z.string() })),
+      "Invalid request format"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: {
+      description: "Unauthorized access - Token required",
+    },
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createErrorSchema(z.object({ error: z.string() })),
+      "Unexpected server error"
+    ),
+  },
+  middlewares: [supabaseMiddleware], // Ensures authentication
+});
+
+
 
 
 export type LogoutAdminRoute = typeof logoutAdmin;
 export type GetJobsWithStudentsRoute = typeof getJobsWithStudentsRoute;
-// superadmin.routes.ts
 export type LoginSuperAdmin = typeof loginAdmin
 export type GetOneRoute = typeof getOne;
 export type CreateStaffsRoute = typeof createstaffsroute;
@@ -325,3 +357,4 @@ export type RemoveDriveRoute = typeof removedriveroute
 export type CreateJobsRoute = typeof createjobroute
 export type RegisteredStudentsRoute = typeof registeredstudents
 export type BulkUploadStudentsRoute = typeof bulkuploadstudents
+export type FeedGroupMailRoute = typeof feedGroupMail

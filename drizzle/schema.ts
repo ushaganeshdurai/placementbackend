@@ -1,4 +1,4 @@
-import { pgTable, bigint, timestamp, varchar, text, date, uuid, foreignKey, unique, integer, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, bigint, timestamp, varchar, text, date, uuid, foreignKey, unique, integer, doublePrecision, primaryKey, pgEnum, serial } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const appliedOrNot = pgEnum("applied_or_not", ['yes', 'partial', 'no'])
@@ -127,4 +127,9 @@ export const superAdmin = pgTable("super_admin", {
 	unique("super_admin_user_id_key").on(table.userId),
 ]);
 
-
+export const groupMails = pgTable("group_mails", {
+	id: serial().primaryKey().notNull(),
+	email: text().notNull(),
+}, (table) => [
+	unique("group_mails_email_key").on(table.email),
+]);

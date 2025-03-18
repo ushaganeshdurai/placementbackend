@@ -3,7 +3,7 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from "bcryptjs";
-import { applications, drive, students, superAdmin, staff, profiles } from "drizzle/schema";
+import { applications, drive, students, superAdmin, staff, profiles, groupMails } from "drizzle/schema";
 import type {
   BulkUploadStudentsRoute,
   CreateJobsRoute,
@@ -14,12 +14,49 @@ import type {
   RegisteredStudentsRoute,
   RemoveDriveRoute,
   RemoveStaffRoute,
-  LogoutAdminRoute
+  LogoutAdminRoute,
+  FeedGroupMailRoute
 
 } from "./superadmin.routes";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 import { oauth } from "../auth/auth.routes";
+import nodemailer from 'nodemailer';
+
+// Email configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // You can use any email service
+  auth: {
+    user: process.env.EMAIL_USER!, // Your email
+    pass: process.env.EMAIL_PASS!, // Your email password or app-specific password
+  },
+});
+
+
+// Function to send notification email
+const sendJobNotificationEmail = async (jobData: any, recipientEmail: string) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: recipientEmail,
+    subject: `New Job Posting: ${jobData.companyName}`,
+    html: `
+      <h2>test</h2>
+      
+      </ul>
+      <p>Please review and take necessary action.</p>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Notification email sent successfully to:', recipientEmail);
+  } catch (error) {
+    console.error('Error sending notification email:', error);
+    throw new Error('Failed to send notification email');
+  }
+};
+
+
 
 // Login the admin
 export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
@@ -57,68 +94,6 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
   });
   return c.redirect("/superadmin", 302);
 };
-
-// Get Super Admin Dashboard Data
-// export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
-//   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
-
-//   if (!jwtToken) {
-//     return c.json({ error: "Unauthorized: No session found" }, 401);
-//   }
-
-//   let userId = null;
-//   let userRole = null;
-//   let email = null;
-
-//   try {
-//     const SECRET_KEY = process.env.SECRET_KEY!;
-//     const decoded = await verify(jwtToken, SECRET_KEY);
-//     if (!decoded) throw new Error("Invalid session");
-//     userId = decoded.id;
-//     userRole = decoded.role;
-//     email = decoded.email;
-//     console.log("JWT Token:", jwtToken);
-//   } catch (error) {
-//     if (error === "TokenExpiredError") {
-//       return c.json({ error: "Session expired" }, 401);
-//     }
-//     console.error("Session Verification Error:", error);
-//     return c.json({ error: "Invalid session" }, 401);
-//   }
-
-//   if (userRole !== "super_admin") {
-//     return c.json({ error: "Unauthorized: Insufficient role" }, 403);
-//   }
-
-//   try {
-//     const staffList = await db
-//       .select({
-//         staffId: staff.staffId,
-//         userId: staff.userId,
-//         email: staff.email,
-//         name: staff.name,
-//         department: staff.department,
-//       })
-//       .from(staff)
-//       .execute();
-
-//     console.log("Fetched staff list:", staffList);
-
-//     return c.json(
-//       {
-//         success: true,
-//         userId,
-//         role: userRole,
-//         email,
-//         staff: staffList,
-//       },
-//       200
-//     );
-//   } catch (error) {
-//     console.error("Database query error:", error);
-//     return c.json({ error: "Failed to fetch data" }, 500);
-//   }
-// };
 
 
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
@@ -324,63 +299,121 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
 };
 
 // Create Jobs
+// export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     let userRole: string | null = null;
+//     let userId: string | null = null;
+
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken!, SECRET_KEY);
+//       console.log("Decoded JWT:", decoded);
+//       if (!decoded) throw new Error("Invalid session");
+//       userRole = decoded.role as string;
+//       userId = decoded.id as string;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     if (!userId) {
+//       return c.json({ error: "Super admin ID missing from token" }, 400);
+//     }
+
+//     const newJobs = c.req.valid("json");
+//     console.log("Received jobs data:", newJobs);
+//     if (!Array.isArray(newJobs)) {
+//       return c.json([], HttpStatusCodes.OK);
+//     }
+
+//     if (userRole === "super_admin") {
+//       const validJobs = await Promise.all(
+//         newJobs.map(async (job) => ({
+//           batch: job.batch!,
+//           jobDescription: job.jobDescription!,
+//           department: job.department,
+//           expiration: job.expiration!,
+//           companyName: job.companyName!,
+//           driveDate: job.driveDate!,
+//           driveLink: job.driveLink!,
+//         }))
+//       );
+
+//       console.log("Formatted jobs for DB:", validJobs);
+
+//       const insertedJobs = await db.insert(drive).values(validJobs).returning();
+//       return c.json(insertedJobs, HttpStatusCodes.OK);
+//     }
+
+//     return c.json({ error: "Unauthorized" }, 403);
+//   } catch (error) {
+//     console.error("Job creation error:", error);
+//     return c.json({ error: "Failed to create jobs", details: error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+//   }
+// };
+
+
+
+
+
+
+// Create Jobs with Email Notification
 export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
+  const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+  if (!jwtToken) return c.json({ error: "Unauthorized: No session found" }, 401);
+
+  let decoded;
   try {
-    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
-    if (!jwtToken) {
-      return c.json({ error: "Unauthorized: No session found" }, 401);
-    }
+    decoded = await verify(jwtToken, process.env.SECRET_KEY!);
+    if (!decoded) throw new Error("Invalid session");
+  } catch (error) {
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session" }, 401);
+  }
 
-    let userRole: string | null = null;
-    let userId: string | null = null;
+  if (decoded.role !== "super_admin") return c.json({ error: "Unauthorized" }, 403);
+  if (!decoded.id) return c.json({ error: "Super admin ID missing from token" }, 400);
 
-    const SECRET_KEY = process.env.SECRET_KEY!;
-    try {
-      const decoded = await verify(jwtToken!, SECRET_KEY);
-      console.log("Decoded JWT:", decoded);
-      if (!decoded) throw new Error("Invalid session");
-      userRole = decoded.role as string;
-      userId = decoded.id as string;
-    } catch (error) {
-      console.error("Session Verification Error:", error);
-      return c.json({ error: "Invalid session" }, 401);
-    }
+  const newJobs = c.req.valid("json");
+  if (!Array.isArray(newJobs)) return c.json([], HttpStatusCodes.OK);
 
-    if (!userId) {
-      return c.json({ error: "Super admin ID missing from token" }, 400);
-    }
+  try {
+    const validJobs = newJobs.map(job => ({
+      batch: job.batch!,
+      jobDescription: job.jobDescription!,
+      department: job.department,
+      expiration: job.expiration!,
+      companyName: job.companyName!,
+      driveDate: job.driveDate!,
+      driveLink: job.driveLink!,
+      notificationEmail: job.notificationEmail!,
+    }));
 
-    const newJobs = c.req.valid("json");
-    console.log("Received jobs data:", newJobs);
-    if (!Array.isArray(newJobs)) {
-      return c.json([], HttpStatusCodes.OK);
-    }
+    const insertedJobs = await db.insert(drive).values(validJobs).returning();
 
-    if (userRole === "super_admin") {
-      const validJobs = await Promise.all(
-        newJobs.map(async (job) => ({
-          batch: job.batch!,
-          jobDescription: job.jobDescription!,
-          department: job.department,
-          expiration: job.expiration!,
-          companyName: job.companyName!,
-          driveDate: job.driveDate!,
-          driveLink: job.driveLink!,
-        }))
-      );
+    // Send email notification for each job
+    await Promise.all(
+      validJobs.map(job =>
+        sendJobNotificationEmail(job, job.notificationEmail)
+      )
+    );
 
-      console.log("Formatted jobs for DB:", validJobs);
-
-      const insertedJobs = await db.insert(drive).values(validJobs).returning();
-      return c.json(insertedJobs, HttpStatusCodes.OK);
-    }
-
-    return c.json({ error: "Unauthorized" }, 403);
+    return c.json(insertedJobs, HttpStatusCodes.OK);
   } catch (error) {
     console.error("Job creation error:", error);
     return c.json({ error: "Failed to create jobs", details: error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 };
+
+
+
+
+
 
 // Remove Job
 export const removedrive: AppRouteHandler<RemoveDriveRoute> = async (c) => {
@@ -693,4 +726,56 @@ export const logoutAdmin: AppRouteHandler<LogoutAdminRoute> = async (c) => {
   }
 
   return c.json({ message: "Logged out successfully" }, HttpStatusCodes.OK);
+};
+
+
+export const FeedGroupMail: AppRouteHandler<FeedGroupMailRoute> = async (c) => {
+  try {
+    deleteCookie(c, "student_session");
+    deleteCookie(c, "staff_session");
+
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) return c.json({ error: "Unauthorized: No session found" }, 401);
+
+    let userRole: string | null = null;
+    const SECRET_KEY = process.env.SECRET_KEY!;
+
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded) throw new Error("Invalid session");
+      userRole = decoded.role as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    const requestBody = await c.req.json();
+    if (!Array.isArray(requestBody)) {
+      return c.json({ error: "Invalid request format, expected an array of emails" }, 400);
+    }
+
+    if (userRole !== "super_admin") return c.json({ error: "Unauthorized" }, 403);
+
+    // Validate and clean emails
+    const validEmails = [...new Set(
+      requestBody
+        .filter((email: any) => typeof email === "string")
+        .map((email: string) => email.trim().toLowerCase())
+        .filter((email: string) => email.endsWith("@saec.ac.in"))
+    )];
+
+    if (validEmails.length === 0) {
+      return c.json({ error: "No valid emails with @saec.ac.in domain" }, 400);
+    }
+
+    // Insert emails into DB
+    const insertedEmails = await db.insert(groupMails).values(
+      validEmails.map((email) => ({ email }))
+    ).returning();
+
+    return c.json({ inserted: insertedEmails.length, emails: insertedEmails }, 200);
+  } catch (error) {
+    console.error("Mail IDs creation error:", error);
+    return c.json({ error: "Server error" }, 500);
+  }
 };

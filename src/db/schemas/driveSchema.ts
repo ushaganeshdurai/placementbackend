@@ -1,5 +1,6 @@
 import { pgTable, text, varchar, timestamp, date, bigint, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
 
 
 
@@ -29,6 +30,8 @@ export const insertDriveSchema = createInsertSchema(drive).required({
     jobDescription: true,
     expiration: true,
     batch: true
+}).extend({
+    notificationEmail: z.string().email()
 });
 // example data to send 
 

@@ -4,7 +4,7 @@ import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
 import type { BulkUploadStudentsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
-import { applications, drive, placedOrNot, staff, students } from "drizzle/schema";
+import { applications, drive, groupMails, placedOrNot, staff, students } from "drizzle/schema";
 import { insertStudentSchema } from "@/db/schemas/studentSchema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
@@ -864,6 +864,59 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 
 
 
+export const FeedGroupMail: AppRouteHandler<FeedGroupMailRoute> = async (c) => {
+  try {
+    deleteCookie(c, "student_session");
+    deleteCookie(c, "admin_session");
+
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) return c.json({ error: "Unauthorized: No session found" }, 401);
+
+    let userRole: string | null = null;
+    const SECRET_KEY = process.env.SECRET_KEY!;
+
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded) throw new Error("Invalid session");
+      userRole = decoded.role as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    const requestBody = await c.req.json();
+    if (!Array.isArray(requestBody)) {
+      return c.json({ error: "Invalid request format, expected an array of emails" }, 400);
+    }
+
+    if (userRole !== "staff") return c.json({ error: "Unauthorized" }, 403);
+
+    // Validate and clean emails
+    const validEmails = [...new Set(
+      requestBody
+        .filter((email: any) => typeof email === "string")
+        .map((email: string) => email.trim().toLowerCase())
+        .filter((email: string) => email.endsWith("@saec.ac.in"))
+    )];
+
+    if (validEmails.length === 0) {
+      return c.json({ error: "No valid emails with @saec.ac.in domain" }, 400);
+    }
+
+    // Insert emails into DB
+    const insertedEmails = await db.insert(groupMails).values(
+      validEmails.map((email) => ({ email }))
+    ).returning();
+
+    return c.json({ inserted: insertedEmails.length, emails: insertedEmails }, 200);
+  } catch (error) {
+    console.error("Mail IDs creation error:", error);
+    return c.json({ error: "Server error" }, 500);
+  }
+};
+
+
+
 export const logoutStaff: AppRouteHandler<LogoutStaffRoute> = async (c) => {
   const jwtoken = getCookie(c, "staff_session")
   if (!jwtoken) {
@@ -873,3 +926,4 @@ export const logoutStaff: AppRouteHandler<LogoutStaffRoute> = async (c) => {
   }
   return c.json({ message: "Logged out successfully" }, HttpStatusCodes.OK);
 };
+

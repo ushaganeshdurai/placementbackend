@@ -399,9 +399,43 @@ export const logoutStaff = createRoute({
   middlewares: [supabaseMiddleware],
 });
 
+export const feedGroupMail = createRoute({
+  path: "/staff/feedgroupmail",
+  method: "post",
+  body: jsonContentRequired(
+    z.array(z.string().email()).nonempty(),
+    "List of emails to be added"
+  ),
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.array(
+        z.object({
+          id: z.number(),
+          email: z.string().email(),
+        })
+      ),
+      "Successfully added emails"
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createErrorSchema(z.object({ error: z.string() })),
+      "Invalid request format"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: {
+      description: "Unauthorized access - Token required",
+    },
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createErrorSchema(z.object({ error: z.string() })),
+      "Unexpected server error"
+    ),
+  },
+  middlewares: [supabaseMiddleware], // Ensures authentication
+});
+
+
 
 export type PlacedStudentsRoute = typeof placedstudents;
 export type LogoutStaffRoute = typeof logoutStaff;
+export type FeedGroupMailRoute = typeof feedGroupMail
 export type LoginStaffRoute = typeof loginStaff;
 export type GetOneRoute = typeof getOne;
 export type CreateStudentsRoute = typeof createstudentsroute;

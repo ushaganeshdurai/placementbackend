@@ -13,5 +13,6 @@ const router = createRouter()
   .openapi(routes.registeredstudents,handlers.registeredStudents)
   .openapi(routes.bulkuploadstudents,handlers.bulkUploadStudents)
   .openapi(routes.getJobsWithStudentsRoute, handlers.getJobsWithStudents)
-  .openapi(routes.logoutAdmin, handlers.logoutAdmin); // Add this line
+  .openapi(routes.logoutAdmin, handlers.logoutAdmin)
+  .openapi(routes.feedGroupMail,handlers.FeedGroupMail)
 export default router;
