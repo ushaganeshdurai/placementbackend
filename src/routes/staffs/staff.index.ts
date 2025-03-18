@@ -11,10 +11,11 @@ const router = createRouter()
   .openapi(routes.createjobalertroute, handlers.createjobalert)
   .openapi(routes.removejobroute, handlers.removejob)
   .openapi(routes.displayDrives, handlers.displayDrives)
-  .openapi(routes.registeredStudents, handlers.registeredStudents) // Renamed back to registeredStudents
+  .openapi(routes.registeredStudents, handlers.registeredStudents) 
   .openapi(routes.bulkuploadstudents, handlers.bulkUploadStudents)
   .openapi(routes.placedstudents, handlers.placedstudents)
   .openapi(routes.logoutStaff, handlers.logoutStaff)
   .openapi(routes.feedGroupMail,handlers.FeedGroupMail)
+  .openapi(routes.getFeedGroupMail,handlers.getFeedGroupMail)
 
 export default router;

@@ -8,8 +8,8 @@ import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSc
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
 import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
-import { createInsertSchema } from "drizzle-zod";
-import { students } from "drizzle/schema";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { groupMails, students } from "drizzle/schema";
 
 // Log in the staff
 export const loginStaff = createRoute({
@@ -431,6 +431,34 @@ export const feedGroupMail = createRoute({
   middlewares: [supabaseMiddleware], // Ensures authentication
 });
 
+export const selectMailSchema = createSelectSchema(groupMails).omit({
+  id: true
+});
+
+export const getFeedGroupMail = createRoute({
+  path: "/staff/getfeedgroupmail",
+  method: "get",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      selectMailSchema,
+      "The requested mail details"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: {
+      description:
+        "Unauthorized access - Token required"
+    },
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "Group Mail not found"
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(IdParamsSchema),
+      "Invalid ID format"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
+
 
 
 export type PlacedStudentsRoute = typeof placedstudents;
@@ -445,4 +473,5 @@ export type RemoveJobRoute = typeof removejobroute;
 export type UpdatePasswordRoute = typeof updatepassword;
 export type DisplayDrivesRoute = typeof displayDrives;
 export type BulkUploadStudentsRoute = typeof bulkuploadstudents;
+export type GetFeedGroupMailRoute = typeof getFeedGroupMail;
 export type RegisteredStudentsRoute = typeof registeredStudents; // Updated type name

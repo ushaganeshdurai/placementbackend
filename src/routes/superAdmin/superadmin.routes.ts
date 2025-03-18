@@ -9,8 +9,8 @@ import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 import { jobIdSchema } from "../staffs/staff.routes";
 import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
 import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
-import { students } from "drizzle/schema";
-import { createInsertSchema } from "drizzle-zod";
+import { groupMails, students } from "drizzle/schema";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
 
 
@@ -347,6 +347,31 @@ export const feedGroupMail = createRoute({
 
 
 
+export const selectMailSchema = createSelectSchema(groupMails).omit({
+  id: true
+});
+
+export const getFeedGroupMail = createRoute({
+  path: "/superadmin/getfeedgroupmail",
+  method: "get",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      selectMailSchema,
+      "List of group emails"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: {
+      description: "Unauthorized access - Token required",
+    },
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createErrorSchema(z.object({ error: z.string() })),
+      "Unexpected server error"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
+
+
+export type GetFeedMailRoute = typeof getFeedGroupMail;
 export type LogoutAdminRoute = typeof logoutAdmin;
 export type GetJobsWithStudentsRoute = typeof getJobsWithStudentsRoute;
 export type LoginSuperAdmin = typeof loginAdmin
@@ -358,3 +383,4 @@ export type CreateJobsRoute = typeof createjobroute
 export type RegisteredStudentsRoute = typeof registeredstudents
 export type BulkUploadStudentsRoute = typeof bulkuploadstudents
 export type FeedGroupMailRoute = typeof feedGroupMail
+

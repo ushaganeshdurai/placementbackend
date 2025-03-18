@@ -3,7 +3,7 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-import type { BulkUploadStudentsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
+import type { BulkUploadStudentsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, FeedGroupMailRoute, GetFeedGroupMailRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
 import { applications, drive, groupMails, placedOrNot, staff, students } from "drizzle/schema";
 import { insertStudentSchema } from "@/db/schemas/studentSchema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
@@ -914,6 +914,48 @@ export const FeedGroupMail: AppRouteHandler<FeedGroupMailRoute> = async (c) => {
     return c.json({ error: "Server error" }, 500);
   }
 };
+
+export const getFeedGroupMail: AppRouteHandler<GetFeedGroupMailRoute> = async (c) => {
+  const jwtToken = getCookie(c, "staff_session");
+
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+  }
+
+  let staffId = null;
+  let userRole = null;
+
+  try {
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    const decoded = await verify(jwtToken!, SECRET_KEY);
+    if (!decoded) throw new Error("Invalid session");
+    staffId = decoded.staff_id;
+    userRole = decoded.role;
+    console.log(jwtToken)
+  } catch (error) {
+    if (error === "TokenExpiredError") {
+      return c.json({ error: "Session expired", success: false }, 401);
+    }
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session", success: false }, 401);
+  }
+
+  if (userRole !== "staff") {
+    return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+  }
+
+  try {
+    const groupMailList = await db.select({email: groupMails.email}).from(groupMails).execute();
+    return c.json({
+    groupMailList,
+    }, 200);
+
+  } catch (error) {
+    console.error("Database query error:", error);
+    return c.json({ error: "Failed to fetch data", success: false }, 500);
+  }
+};
+
 
 
 

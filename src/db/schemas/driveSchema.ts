@@ -31,7 +31,7 @@ export const insertDriveSchema = createInsertSchema(drive).required({
     expiration: true,
     batch: true
 }).extend({
-    notificationEmail: z.string().email()
+    notificationEmail: z.array(z.string().email())
 });
 // example data to send 
 

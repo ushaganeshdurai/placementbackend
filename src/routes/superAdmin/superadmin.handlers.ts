@@ -15,7 +15,8 @@ import type {
   RemoveDriveRoute,
   RemoveStaffRoute,
   LogoutAdminRoute,
-  FeedGroupMailRoute
+  FeedGroupMailRoute,
+  GetFeedMailRoute
 
 } from "./superadmin.routes";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
@@ -298,70 +299,6 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
   }
 };
 
-// Create Jobs
-// export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
-//   try {
-//     const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
-//     if (!jwtToken) {
-//       return c.json({ error: "Unauthorized: No session found" }, 401);
-//     }
-
-//     let userRole: string | null = null;
-//     let userId: string | null = null;
-
-//     const SECRET_KEY = process.env.SECRET_KEY!;
-//     try {
-//       const decoded = await verify(jwtToken!, SECRET_KEY);
-//       console.log("Decoded JWT:", decoded);
-//       if (!decoded) throw new Error("Invalid session");
-//       userRole = decoded.role as string;
-//       userId = decoded.id as string;
-//     } catch (error) {
-//       console.error("Session Verification Error:", error);
-//       return c.json({ error: "Invalid session" }, 401);
-//     }
-
-//     if (!userId) {
-//       return c.json({ error: "Super admin ID missing from token" }, 400);
-//     }
-
-//     const newJobs = c.req.valid("json");
-//     console.log("Received jobs data:", newJobs);
-//     if (!Array.isArray(newJobs)) {
-//       return c.json([], HttpStatusCodes.OK);
-//     }
-
-//     if (userRole === "super_admin") {
-//       const validJobs = await Promise.all(
-//         newJobs.map(async (job) => ({
-//           batch: job.batch!,
-//           jobDescription: job.jobDescription!,
-//           department: job.department,
-//           expiration: job.expiration!,
-//           companyName: job.companyName!,
-//           driveDate: job.driveDate!,
-//           driveLink: job.driveLink!,
-//         }))
-//       );
-
-//       console.log("Formatted jobs for DB:", validJobs);
-
-//       const insertedJobs = await db.insert(drive).values(validJobs).returning();
-//       return c.json(insertedJobs, HttpStatusCodes.OK);
-//     }
-
-//     return c.json({ error: "Unauthorized" }, 403);
-//   } catch (error) {
-//     console.error("Job creation error:", error);
-//     return c.json({ error: "Failed to create jobs", details: error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-//   }
-// };
-
-
-
-
-
-
 // Create Jobs with Email Notification
 export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
@@ -391,15 +328,17 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
       companyName: job.companyName!,
       driveDate: job.driveDate!,
       driveLink: job.driveLink!,
-      notificationEmail: job.notificationEmail!,
+      // Remove notificationEmail from here since it’s not in the DB table
     }));
 
     const insertedJobs = await db.insert(drive).values(validJobs).returning();
 
-    // Send email notification for each job
+    // Send email notifications to all emails for each job
     await Promise.all(
-      validJobs.map(job =>
-        sendJobNotificationEmail(job, job.notificationEmail)
+      newJobs.map(job => // Use newJobs to access notificationEmail
+        Promise.all(
+          job.notificationEmail.map(email => sendJobNotificationEmail(job, email))
+        )
       )
     );
 
@@ -777,5 +716,49 @@ export const FeedGroupMail: AppRouteHandler<FeedGroupMailRoute> = async (c) => {
   } catch (error) {
     console.error("Mail IDs creation error:", error);
     return c.json({ error: "Server error" }, 500);
+  }
+};
+
+
+
+
+export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => {
+  const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+  }
+
+  let userId = null;
+  let userRole = null;
+
+  try {
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    const decoded = await verify(jwtToken!, SECRET_KEY);
+    if (!decoded) throw new Error("Invalid session");
+    userId = decoded.id;
+    userRole = decoded.role;
+    console.log(jwtToken)
+  } catch (error) {
+    if (error === "TokenExpiredError") {
+      return c.json({ error: "Session expired", success: false }, 401);
+    }
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session", success: false }, 401);
+  }
+
+  if (userRole !== "super_admin") {
+    return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+  }
+
+  try {
+    const groupMailList = await db.select({email: groupMails.email}).from(groupMails).execute();
+    return c.json({
+      groupMailList,
+    }, 200);
+
+  } catch (error) {
+    console.error("Database query error:", error);
+    return c.json({ error: "Failed to fetch data", success: false }, 500);
   }
 };
