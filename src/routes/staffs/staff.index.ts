@@ -17,7 +17,7 @@ const router = createRouter()
   .openapi(routes.forgotpassword,handlers.forgotPassword)
   .openapi(routes.resetpassword, handlers.resetPassword)
   .openapi(routes.feedGroupMail,handlers.FeedGroupMail)
-  .openapi(routes.createeventsroute,handlers.createEvents)
+  .openapi(routes.createeventsroute,handlers.createevents)
   .openapi(routes.getFeedGroupMail,handlers.getFeedGroupMail)
 
 export default router;

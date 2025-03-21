@@ -11,6 +11,7 @@ export const events = pgTable("events", {
 
 export const insertEventSchema = createInsertSchema(events).required({
     event_name: true,
-}).optional({
-    event_link: true, date: true, url: true
+    event_link: true,   
+    date: true,
+    url: true,
 });
