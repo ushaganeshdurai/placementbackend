@@ -7,9 +7,10 @@ const router = createRouter()
   .openapi(routes.loginStudent, handlers.loginStudent)
   .openapi(routes.getOne, handlers.getOne)
   .openapi(routes.createresume, handlers.resumedetails)
-  .openapi(routes.updatepassword, handlers.updatepassword)
   .openapi(routes.applyfordrive, handlers.applyForDrive)
-  .openapi(routes.displayDrives,handlers.displayDrives)
+  .openapi(routes.forgotpassword, handlers.forgotPassword)
+  .openapi(routes.resetpassword, handlers.resetPassword)
+  .openapi(routes.displayDrives, handlers.displayDrives)
   .openapi(routes.getResume, handlers.getResume) // Add this line
   .openapi(routes.updateResume, handlers.updateResume) // Add PATCH route
   .openapi(routes.removeApplication, handlers.removeApplication) // Must be here

@@ -157,38 +157,6 @@ export const removestudentroute = createRoute({
   },
 });
 
-const updatePasswordSchema = z.object({
-  oldPassword: z.string().min(6),
-  newPassword: z.string().min(6),
-});
-
-// Update password
-export const updatepassword = createRoute({
-  path: "/staff/updatepassword",
-  method: "patch",
-  request: {
-    body: jsonContentRequired(updatePasswordSchema, "Update staff password")
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.object({ message: z.string() }),
-      "Password updated successfully"
-    ),
-    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
-      createErrorSchema(updatePasswordSchema),
-      "Missing or invalid password details"
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      z.object({ error: z.string() }),
-      "Incorrect old password"
-    ),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      notFoundSchema,
-      "Staff not found"
-    ),
-  },
-  middlewares: [supabaseMiddleware],
-});
 
 export const displayDrives = createRoute({
   path: "/staff/displaydrives",
@@ -460,7 +428,77 @@ export const getFeedGroupMail = createRoute({
 });
 
 
+export const forgotPasswordSchema = z.string().email();
+//forgot password
 
+export const forgotpassword = createRoute({
+  path: "/staff/forgot-password",
+  method: "post",
+  request: {
+    body: jsonContentRequired(forgotPasswordSchema, "forgot staff password")
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({ message: z.string() }),
+      "Forgot Password initiated successfully"
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createErrorSchema(forgotPasswordSchema),
+      "Missing or invalid email details"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      z.object({ error: z.string() }),
+      "Incorrect email"
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "Staff not found"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
+
+
+
+//reset password
+export const resetpassword = createRoute({
+  path: "/staff/reset-password",
+  method: "post",
+  request: {
+    body: jsonContentRequired(
+      z.object({
+        token: z.string(),
+        newPassword: z.string().min(6, "Password must be at least 6 characters long"),
+      }),
+      "Reset staff password"
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({ message: z.string() }),
+      "Password reset successfully"
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      z.object({ error: z.string() }),
+      "Invalid or missing token/password"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      z.object({ error: z.string() }),
+      "Invalid token or expired link"
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "Staff not found"
+    ),
+  },
+});
+
+
+
+
+
+export type ForgotPassword = typeof forgotpassword
+export type ResetPassword = typeof resetpassword
 export type PlacedStudentsRoute = typeof placedstudents;
 export type LogoutStaffRoute = typeof logoutStaff;
 export type FeedGroupMailRoute = typeof feedGroupMail
@@ -470,8 +508,7 @@ export type CreateStudentsRoute = typeof createstudentsroute;
 export type RemoveStudentRoute = typeof removestudentroute;
 export type CreateJobAlertRoute = typeof createjobalertroute;
 export type RemoveJobRoute = typeof removejobroute;
-export type UpdatePasswordRoute = typeof updatepassword;
 export type DisplayDrivesRoute = typeof displayDrives;
 export type BulkUploadStudentsRoute = typeof bulkuploadstudents;
 export type GetFeedGroupMailRoute = typeof getFeedGroupMail;
-export type RegisteredStudentsRoute = typeof registeredStudents; // Updated type name
+export type RegisteredStudentsRoute = typeof registeredStudents; 

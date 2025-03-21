@@ -3,11 +3,11 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-import type { BulkUploadStudentsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, FeedGroupMailRoute, GetFeedGroupMailRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, UpdatePasswordRoute } from "./staff.routes";
+import type { BulkUploadStudentsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, FeedGroupMailRoute, ForgotPassword, GetFeedGroupMailRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, ResetPassword, UpdatePasswordRoute } from "./staff.routes";
 import { applications, drive, groupMails, placedOrNot, staff, students } from "drizzle/schema";
 import { insertStudentSchema } from "@/db/schemas/studentSchema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
-import { sign, verify } from "hono/jwt";
+import { decode, sign, verify } from "hono/jwt";
 import { z } from "zod";
 import nodemailer from 'nodemailer';
 
@@ -192,64 +192,7 @@ export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
   }
 };
 
-//update password
-export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {
-  try {
-    // Get JWT Token from cookies
-    const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
-    if (!jwtToken) {
-      return c.json({ error: "Unauthorized: No session found", success: false }, 401);
-    }
 
-    let staffId: string | null = null;
-    const SECRET_KEY = process.env.SECRET_KEY!;
-    try {
-      const decoded = await verify(jwtToken, SECRET_KEY);
-      if (!decoded) throw new Error("Invalid session");
-
-      staffId = decoded.staff_id as string;
-    } catch (error) {
-      console.error("Session Verification Error:", error);
-      return c.json({ error: "Invalid session", success: false }, 401);
-    }
-
-    if (!staffId) {
-      return c.json({ error: "Staff ID missing from token", success: false }, 400);
-    }
-
-    const { oldPassword, newPassword } = c.req.valid("json");
-
-    const staffQuery = await db
-      .select()
-      .from(staff)
-      .where(eq(staff.staffId, staffId))
-      .limit(1)
-      .execute();
-
-    const staffy = staffQuery[0];
-
-    if (!staffy) {
-      return c.json({ error: "Staff not found", success: false }, 404);
-    }
-
-    const passwordMatches = await bcrypt.compare(staffy.password!, oldPassword);
-    if (!passwordMatches) {
-      return c.json({ error: "Incorrect old password", success: false }, 401);
-    }
-
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-
-    await db
-      .update(staff)
-      .set({ password: hashedNewPassword })
-      .where(eq(staff.staffId, staffId));
-
-    return c.json({ message: "Password updated successfully", success: true }, HttpStatusCodes.OK);
-  } catch (error) {
-    console.error("Password update error:", error);
-    return c.json({ error: "Something went wrong", success: false }, 500);
-  }
-};
 
 
 export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
@@ -994,3 +937,67 @@ export const logoutStaff: AppRouteHandler<LogoutStaffRoute> = async (c) => {
   return c.json({ message: "Logged out successfully" }, HttpStatusCodes.OK);
 };
 
+
+
+export const forgotPassword: AppRouteHandler<ForgotPassword> = async (c) => {
+  try {
+    const { email } = c.req.valid("json");
+    const supabase = c.get("supabase");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `http://localhost:5173/staff/reset-password`,
+    });
+
+    if (error) {
+      console.error("Supabase Forgot Password Error:", error);
+      return c.json({ error: error.message, success: false }, 400);
+    }
+
+    return c.json({ message: "Password reset email sent", success: true }, 200);
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    return c.json({ error: "Something went wrong", success: false }, 500);
+  }
+};
+
+
+
+
+export const resetPassword: AppRouteHandler<ResetPassword> = async (c) => {
+  try {
+    const { token, newPassword } = c.req.valid("json");
+
+    console.log('Received payload:', { token, newPassword });
+
+    if (!token || !newPassword) {
+      console.error('Missing token or password');
+      return c.json({ error: 'Missing token or password' }, 400);
+    }
+
+    const decodedToken = decode(token);
+
+    console.log('Decoded Token:', decodedToken);
+
+    if (!decodedToken || !decodedToken.payload.email) {
+      console.error('Invalid token or missing email');
+      return c.json({ error: 'Invalid token or expired link' }, 401);
+    }
+
+    const userEmail = decodedToken.payload.email;
+    console.log(`Resetting password for: ${userEmail}`);
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const updatedRows = await db
+      .update(staff)
+      .set({ password: hashedPassword })
+      .where(eq(staff.email, userEmail))
+      .returning();
+
+    console.log('Password reset successfully');
+    return c.json({ message: 'Password reset successfully' }, 200);
+
+  } catch (error) {
+    console.error('Internal server error:', error);
+    return c.json({ error: 'Something went wrong' }, 500);
+  }
+};

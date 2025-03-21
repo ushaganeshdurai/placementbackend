@@ -6,6 +6,7 @@ import { notFoundSchema } from "@/lib/constants";
 import { insertResumeSchema, loginStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 import { selectDriveSchema } from "@/db/schemas/driveSchema";
+import { forgotPasswordSchema } from "../staffs/staff.routes";
 
 export const loginStudent = createRoute({
     path: "/student/login",
@@ -90,11 +91,6 @@ export const createresume = createRoute({
 });
 
 
-const updatePasswordSchema = z.object({
-    oldPassword: z.string().min(6),
-    newPassword: z.string().min(6),
-});
-
 
 export const getResume = createRoute({
     path: "/student/resume",
@@ -118,32 +114,7 @@ export const getResume = createRoute({
   
 
 
-export const updatepassword = createRoute({
-    path: "/student/updatepassword",
-    method: "patch",
-    request: {
-        body: jsonContentRequired(updatePasswordSchema, "Update student password")
-    },
-    responses: {
-        [HttpStatusCodes.OK]: jsonContent(
-            z.object({ message: z.string() }),
-            "Password updated successfully"
-        ),
-        [HttpStatusCodes.BAD_REQUEST]: jsonContent(
-            createErrorSchema(updatePasswordSchema),
-            "Missing or invalid password details"
-        ),
-        [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-            z.object({ error: z.string() }),
-            "Incorrect old password"
-        ),
-        [HttpStatusCodes.NOT_FOUND]: jsonContent(
-            notFoundSchema,
-            "Student not found"
-        ),
-    },
-    middlewares: [supabaseMiddleware],
-});
+
 
 
 export const displayDrives = createRoute({
@@ -232,10 +203,70 @@ export const updateResume = createRoute({
   });
   
 
+//forgot password
+
+export const forgotpassword = createRoute({
+  path: "/student/forgot-password",
+  method: "post",
+  request: {
+    body: jsonContentRequired(forgotPasswordSchema, "forgot student password")
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({ message: z.string() }),
+      "Forgot Password initiated successfully"
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createErrorSchema(forgotPasswordSchema),
+      "Missing or invalid email details"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      z.object({ error: z.string() }),
+      "Incorrect email"
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "Student not found"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+});
 
 
 
-
+//reset password
+export const resetpassword = createRoute({
+    path: "/student/reset-password",
+    method: "post",
+    request: {
+      body: jsonContentRequired(
+        z.object({
+          token: z.string(),
+          newPassword: z.string().min(6, "Password must be at least 6 characters long"),
+        }),
+        "Reset student password"
+      ),
+    },
+    responses: {
+      [HttpStatusCodes.OK]: jsonContent(
+        z.object({ message: z.string() }),
+        "Password reset successfully"
+      ),
+      [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+        z.object({ error: z.string() }),
+        "Invalid or missing token/password"
+      ),
+      [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+        z.object({ error: z.string() }),
+        "Invalid token or expired link"
+      ),
+      [HttpStatusCodes.NOT_FOUND]: jsonContent(
+        notFoundSchema,
+        "Student not found"
+      ),
+    },
+  });
+  
 
 
 
@@ -345,7 +376,7 @@ export const logoutStudent = createRoute({
       "Unauthorized access"
     ),
   },
-  middlewares: [supabaseMiddleware],
+middlewares: [supabaseMiddleware],
 });
 
 export type RegStudentRoute = typeof registration;
@@ -357,8 +388,9 @@ export type GetResumeRoute = typeof getResume;
 export type UpdateResumeRoute = typeof updateResume;
 export type LoginStudentRoute = typeof loginStudent
 export type GetOneRoute = typeof getOne;
+export type ForgotPassword = typeof forgotpassword 
+export type ResetPassword = typeof resetpassword
 export type CreateResumeRoute = typeof createresume
-export type UpdatePasswordRoute = typeof updatepassword
 export type ApplyForDriveRoute = typeof applyfordrive
 export type DisplayDrivesRoute = typeof displayDrives
 export type LogoutStudentRoute = typeof logoutStudent
