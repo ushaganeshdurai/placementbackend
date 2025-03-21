@@ -134,3 +134,11 @@ export const groupMails = pgTable("group_mails", {
 }, (table) => [
 	unique("group_mails_email_key").on(table.email),
 ]);
+
+export const events = pgTable("events", {
+	id: serial().primaryKey().notNull(),
+	event_name: text().notNull(),
+	event_link:text('event_link'),
+	date:text('date'),
+	url:text('url')
+});

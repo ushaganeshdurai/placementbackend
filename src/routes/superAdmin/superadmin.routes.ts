@@ -12,6 +12,7 @@ import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
 import { groupMails, students } from "drizzle/schema";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
+import { insertEventSchema } from "@/db/schemas/eventSchema";
 
 
 
@@ -369,6 +370,35 @@ export const getFeedGroupMail = createRoute({
   },
   middlewares: [supabaseMiddleware],
 });
+/**
+ * API route for creating multiple events in the super admin dashboard
+ * 
+ * @route POST /superadmin/add-events
+ * @accepts Array of event objects conforming to insertEventSchema
+ * @returns Created events on success, validation errors on unprocessable entity
+ */
+
+export const createeventsroute = createRoute({
+  path: "/superadmin/add-events",
+  method: "post",
+  request: {
+    body: jsonContentRequired(
+      z.array(insertEventSchema),  
+      "Add multiple events",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContentRequired(
+      z.array(insertEventSchema),  
+      "Created many events",
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(insertEventSchema),
+      "The validation error(s)",
+    ),
+  },
+});
+
 
 
 export type GetFeedMailRoute = typeof getFeedGroupMail;
@@ -376,6 +406,7 @@ export type LogoutAdminRoute = typeof logoutAdmin;
 export type GetJobsWithStudentsRoute = typeof getJobsWithStudentsRoute;
 export type LoginSuperAdmin = typeof loginAdmin
 export type GetOneRoute = typeof getOne;
+export type CreateEventsRoute = typeof createeventsroute;
 export type CreateStaffsRoute = typeof createstaffsroute;
 export type RemoveStaffRoute = typeof removestaffroute;
 export type RemoveDriveRoute = typeof removedriveroute

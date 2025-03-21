@@ -3,13 +3,14 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-import type { BulkUploadStudentsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, FeedGroupMailRoute, ForgotPassword, GetFeedGroupMailRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, ResetPassword, UpdatePasswordRoute } from "./staff.routes";
-import { applications, drive, groupMails, placedOrNot, staff, students } from "drizzle/schema";
+import type { BulkUploadStudentsRoute, CreateEventsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, FeedGroupMailRoute, ForgotPassword, GetFeedGroupMailRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, ResetPassword, UpdatePasswordRoute } from "./staff.routes";
+import { applications, drive, events, groupMails, placedOrNot, staff, students } from "drizzle/schema";
 import { insertStudentSchema } from "@/db/schemas/studentSchema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { decode, sign, verify } from "hono/jwt";
 import { z } from "zod";
 import nodemailer from 'nodemailer';
+import { createClient } from "@supabase/supabase-js";
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -467,8 +468,6 @@ export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) =>
 
 
 
-
-
 export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) => {
   try {
     const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
@@ -720,12 +719,6 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
 
 
 
-
-
-
-
-
-
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   const jwtToken = getCookie(c, "staff_session");
 
@@ -883,6 +876,8 @@ export const FeedGroupMail: AppRouteHandler<FeedGroupMailRoute> = async (c) => {
   }
 };
 
+
+
 export const getFeedGroupMail: AppRouteHandler<GetFeedGroupMailRoute> = async (c) => {
   const jwtToken = getCookie(c, "staff_session");
 
@@ -999,5 +994,115 @@ export const resetPassword: AppRouteHandler<ResetPassword> = async (c) => {
   } catch (error) {
     console.error('Internal server error:', error);
     return c.json({ error: 'Something went wrong' }, 500);
+  }
+};
+
+
+
+export const createeventss: AppRouteHandler<CreateEventsRoute> = async (c) => {
+  const jwtToken = getCookie(c, "staff_session");
+  
+  if (!jwtToken) {
+    return c.json({ error: "Unauthorized: No session found" }, HttpStatusCodes.UNAUTHORIZED);
+  }
+
+  let decoded: any;
+  try {
+    decoded = await verify(jwtToken, process.env.SECRET_KEY!);
+    if (!decoded || decoded.role !== "staff" || !decoded.staff_id) {
+      return c.json({ error: "Unauthorized or invalid session" }, HttpStatusCodes.FORBIDDEN);
+    }
+  } catch (error) {
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
+  }
+
+  const newEvents = c.req.valid("json");
+  if (!Array.isArray(newEvents) || newEvents.length === 0) {
+    return c.json({ message: "No valid events provided" }, HttpStatusCodes.BAD_REQUEST);
+  }
+
+  let supabase = c.get("supabase");
+  if (!supabase) {
+    console.warn("Supabase client not found in context. Initializing manually.");
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      return c.json({ error: "Supabase environment variables not set" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+    }
+    supabase = createClient(supabaseUrl, supabaseKey);
+  }
+
+  const validEvents = [];
+
+  for (const event of newEvents) {
+    if (
+      !event.event_name || typeof event.event_name !== "string" ||
+      !event.event_link || typeof event.event_link !== "string" ||
+      !event.date || typeof event.date !== "string"
+    ) {
+      console.warn("Invalid event data:", event);
+      continue;  
+    }
+
+    let posterUrl = event.url;  
+
+    if (event.file) {
+      if (typeof event.file !== "string") {
+        return c.json({ error: "Invalid file: Must be a base64-encoded string" }, HttpStatusCodes.BAD_REQUEST);
+      }
+
+      try {
+        const fileBuffer = Buffer.from(event.file, "base64");
+        const fileName = event.fileName
+          ? `uploads/${Date.now()}_${event.fileName}`
+          : `uploads/${Date.now()}_poster-pic`;
+
+        const { data, error } = await supabase.storage
+          .from("bucky")
+          .upload(fileName, fileBuffer, {
+            contentType: event.fileType || "image/jpeg",
+            cacheControl: "3600",
+            upsert: true,
+          });
+
+        if (error) {
+          console.error("Supabase Upload Error:", error);
+          return c.json({ error: `File upload failed: ${error.message}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+        }
+
+        posterUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+        console.log("Uploaded file URL:", posterUrl);
+      } catch (uploadError) {
+        console.error("File Upload Exception:", uploadError);
+        return c.json({ error: "Failed to upload file" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+      }
+    }
+
+    validEvents.push({
+      eventName: event.event_name,
+      eventLink: event.event_link,
+      date: event.date,
+      posterUrl,  
+    });
+  }
+
+  if (validEvents.length === 0) {
+    return c.json({ error: "No valid events to insert" }, HttpStatusCodes.BAD_REQUEST);
+  }
+
+  try {
+    const insertedEvents = await db
+      .insert(events)
+      .values(validEvents)
+      .returning();
+
+    return c.json(insertedEvents, HttpStatusCodes.OK);
+  } catch (error: any) {
+    console.error("Event creation error:", error);
+    return c.json(
+      { error: "Failed to create events", details: error.message },
+      HttpStatusCodes.INTERNAL_SERVER_ERROR
+    );
   }
 };

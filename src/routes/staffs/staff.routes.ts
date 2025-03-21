@@ -10,6 +10,7 @@ import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
 import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { groupMails, students } from "drizzle/schema";
+import { insertEventSchema } from "@/db/schemas/eventSchema";
 
 // Log in the staff
 export const loginStaff = createRoute({
@@ -182,34 +183,6 @@ export const displayDrives = createRoute({
   middlewares: [supabaseMiddleware],
 });
 
-// See all the students who have registered for a specific drive
-// export const registeredStudents = createRoute({
-//   path: "/staff/registeredstudents/{driveId}",
-//   method: "get",
-//   request: {
-//     params: z.object({
-//       driveId: z.string().transform((val) => Number(val)), // Coerce to number
-//     }),
-//   },
-//   responses: {
-//     [HttpStatusCodes.OK]: jsonContent(
-//       z.array(selectApplicationsSchema),
-//       "The requested applicant list for a specific drive"
-//     ),
-//     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-//       createErrorSchema(selectApplicationsSchema),
-//       "Unauthorized access - Token required"
-//     ),
-//     [HttpStatusCodes.NOT_FOUND]: jsonContent(
-//       notFoundSchema,
-//       "No registrations for this drive"
-//     ),
-//   },
-//   middlewares: [supabaseMiddleware],
-// });
-
-
-
 export const registeredStudents = createRoute({
   path: "/staff/registeredstudents/{driveId}",
   method: "get",
@@ -227,58 +200,6 @@ export const registeredStudents = createRoute({
   },
   middlewares: [supabaseMiddleware],
 });
-
-
-// export const insertStudentsSchema = createInsertSchema(students)
-//   .required({
-//     email: true,
-//     password: true,
-//   })
-//   .omit({
-//     studentId: true,
-//     userId: true,
-//     department: true,
-//     placedStatus: true,
-//     staffId: true,
-//     skillSet: true,
-//     languagesKnown: true,
-//     phoneNumber: true,
-//     noOfArrears: true,
-//     githubUrl: true,
-//     linkedinUrl: true,
-//     twelfthMark: true,
-//     tenthMark: true,
-//     cgpa: true,
-//     name: true,
-//     regNo: true,
-//     rollNo: true,
-//     year: true,
-//   })
-//   .extend({
-//     staffEmail: z.string().email(),
-//   });
-
-// Bulk upload students
-// export const bulkuploadstudents = createRoute({
-//   path: "/staff/bulkuploadstudents",
-//   method: "post",
-//   request: {
-//     body: jsonContentRequired(
-//       z.array(insertStudentsSchema),
-//       "Add multiple students",
-//     ),
-//   },
-//   responses: {
-//     [HttpStatusCodes.OK]: jsonContent(
-//       z.array(selectStudentSchema),
-//       "Created many students",
-//     ),
-//     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-//       createErrorSchema(insertStudentsSchema),
-//       "The validation error(s)",
-//     ),
-//   },
-// });
 
 
 export const bulkuploadstudents = createRoute({
@@ -459,7 +380,6 @@ export const forgotpassword = createRoute({
 });
 
 
-
 //reset password
 export const resetpassword = createRoute({
   path: "/staff/reset-password",
@@ -493,6 +413,26 @@ export const resetpassword = createRoute({
   },
 });
 
+export const createeventsroute = createRoute({
+  path: "/staff/add-events",
+  method: "post",
+  request: {
+    body: jsonContentRequired(
+      z.array(insertEventSchema),  
+      "Add multiple events",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContentRequired(
+      z.array(insertEventSchema),  
+      "Created many events",
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(insertEventSchema),
+      "The validation error(s)",
+    ),
+  },
+});
 
 
 
@@ -512,3 +452,4 @@ export type DisplayDrivesRoute = typeof displayDrives;
 export type BulkUploadStudentsRoute = typeof bulkuploadstudents;
 export type GetFeedGroupMailRoute = typeof getFeedGroupMail;
 export type RegisteredStudentsRoute = typeof registeredStudents; 
+export type CreateEventsRoute = typeof createeventsroute;
