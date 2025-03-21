@@ -1,12 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
+import { decode } from 'hono/jwt';
 import db from "@/db";
 import bcrypt from 'bcryptjs';
-import type { ApplyForDriveRoute, CreateResumeRoute, DisplayDrivesRoute, GetOneRoute, LoginStudentRoute, UpdatePasswordRoute, RegStudentRoute } from "./student.routes";
+import type { ApplyForDriveRoute, CreateResumeRoute, DisplayDrivesRoute, GetOneRoute, LoginStudentRoute, UpdatePasswordRoute, RegStudentRoute, ForgotPassword, ResetPassword } from "./student.routes";
 import { students, applications, drive, staff } from "drizzle/schema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
-import { sign, verify } from "hono/jwt";
+import { jwt, sign, verify } from "hono/jwt";
 
 export const loginStudent: AppRouteHandler<LoginStudentRoute> = async (c) => {
   deleteCookie(c, "staff_session");
@@ -250,61 +251,6 @@ export const getResume: AppRouteHandler<GetResumeRoute> = async (c) => {
   }
 };
 
-export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {
-  deleteCookie(c, "staff_session");
-  deleteCookie(c, "admin_session");
-  try {
-    const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
-    if (!jwtToken) {
-      return c.json({ error: "Unauthorized: No session found" }, 401);
-    }
-
-    let studentId = null;
-    const SECRET_KEY = process.env.SECRET_KEY!;
-    try {
-      const decoded = await verify(jwtToken, SECRET_KEY);
-      if (!decoded || !decoded.student_id) {
-        return c.json({ error: "Invalid session: Student ID missing" }, 401);
-      }
-      studentId = decoded.student_id;
-    } catch (error) {
-      console.error("Session Verification Error:", error);
-      return c.json({ error: "Invalid session" }, 401);
-    }
-
-    const { oldPassword, newPassword } = c.req.valid("json");
-
-    const studentQuery = await db
-      .select()
-      .from(students)
-      .where(eq(students.studentId, studentId))
-      .limit(1)
-      .execute();
-
-    const student = studentQuery[0];
-
-    if (!student) {
-      return c.json({ error: "Student not found" }, 404);
-    }
-
-    const passwordMatches = await bcrypt.compare(student.password!, oldPassword);
-    if (!passwordMatches) {
-      return c.json({ error: "Incorrect old password" }, 401);
-    }
-
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-
-    await db
-      .update(students)
-      .set({ password: hashedNewPassword })
-      .where(eq(students.studentId, studentId));
-
-    return c.json({ message: "Password updated successfully" }, HttpStatusCodes.OK);
-  } catch (error) {
-    console.error("Password update error:", error);
-    return c.json({ error: "Something went wrong" }, 500);
-  }
-};
 
 export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
   deleteCookie(c, "staff_session");
@@ -589,4 +535,69 @@ export const logoutStudent: AppRouteHandler<LogoutStudentRoute> = async (c) => {
     deleteCookie(c, "student_session");
   }
   return c.json({ message: "Logged out successfully" }, HttpStatusCodes.OK);
+};
+
+
+
+export const forgotPassword: AppRouteHandler<ForgotPassword> = async (c) => {
+  try {
+    const { email } = c.req.valid("json");
+    const supabase = c.get("supabase");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `http://localhost:5173/student/reset-password`,
+    });
+
+    if (error) {
+      console.error("Supabase Forgot Password Error:", error);
+      return c.json({ error: error.message, success: false }, 400);
+    }
+
+    return c.json({ message: "Password reset email sent", success: true }, 200);
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    return c.json({ error: "Something went wrong", success: false }, 500);
+  }
+};
+
+
+
+
+export const resetPassword: AppRouteHandler<ResetPassword> = async (c) => {
+  try {
+    const { token, newPassword } = c.req.valid("json");
+
+    console.log('Received payload:', { token, newPassword });
+
+    if (!token || !newPassword) {
+      console.error('Missing token or password');
+      return c.json({ error: 'Missing token or password' }, 400);
+    }
+
+    const decodedToken = decode(token);
+
+    console.log('Decoded Token:', decodedToken);
+
+    if (!decodedToken || !decodedToken.payload.email) {
+      console.error('Invalid token or missing email');
+      return c.json({ error: 'Invalid token or expired link' }, 401);
+    }
+
+    const userEmail = decodedToken.payload.email;
+    console.log(`Resetting password for: ${userEmail}`);
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const updatedRows = await db
+      .update(students)
+      .set({ password: hashedPassword })
+      .where(eq(students.email, userEmail))
+      .returning();
+
+    console.log('Password reset successfully');
+    return c.json({ message: 'Password reset successfully' }, 200);
+
+  } catch (error) {
+    console.error('Internal server error:', error);
+    return c.json({ error: 'Something went wrong' }, 500);
+  }
 };
