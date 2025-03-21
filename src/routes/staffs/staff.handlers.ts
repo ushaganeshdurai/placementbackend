@@ -9,6 +9,40 @@ import { insertStudentSchema } from "@/db/schemas/studentSchema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 import { z } from "zod";
+import nodemailer from 'nodemailer';
+
+// Email configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // You can use any email service
+  auth: {
+    user: process.env.EMAIL_USER!, // Your email
+    pass: process.env.EMAIL_PASS!, // Your email password or app-specific password
+  },
+});
+
+
+// Function to send notification email
+const sendJobNotificationEmail = async (jobData: any, recipientEmail: string) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: recipientEmail,
+    subject: `New Job Posting: ${jobData.companyName}`,
+    html: `
+      <h2>test</h2>
+      
+      </ul>
+      <p>Please review and take necessary action.</p>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Notification email sent successfully to:', recipientEmail);
+  } catch (error) {
+    console.error('Error sending notification email:', error);
+    throw new Error('Failed to send notification email');
+  }
+};
 
 
 // login the staff
@@ -87,62 +121,53 @@ export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
   }
 };
 
-//Post job
-export const createjobalert: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
+// Create Jobs with Email Notification
+export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
+  const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+  if (!jwtToken) return c.json({ error: "Unauthorized: No session found" }, 401);
+
+  let decoded;
   try {
-    const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
-    if (!jwtToken) {
-      return c.json({ error: "Unauthorized: No session found" }, 401);
-    }
-
-    let userRole: string | null = null;
-    let staffId: string | null = null;
-
-    const SECRET_KEY = process.env.SECRET_KEY!;
-    try {
-      const decoded = await verify(jwtToken!, SECRET_KEY);
-      console.log("Decoded JWT:", decoded);
-      if (!decoded) throw new Error("Invalid session");
-
-      userRole = decoded.role as string;
-      staffId = decoded.staff_id as string;
-    } catch (error) {
-      console.error("Session Verification Error:", error);
-      return c.json({ error: "Invalid session" }, 401);
-    }
-
-    if (!staffId) {
-      return c.json({ error: "Staff ID missing from token" }, 400);
-    }
-
-    const newJobs = c.req.valid("json");
-    if (!Array.isArray(newJobs)) {
-      return c.json([], HttpStatusCodes.OK);
-    }
-
-    if (userRole === "staff") {
-      const validJobs = await Promise.all(
-        newJobs.map(async (job) => ({
-          batch: job.batch,
-          jobDescription: job.jobDescription,
-          department: job.department,
-          driveLink: job.driveLink,
-          expiration: job.expiration, //format: mm/dd/yyyy, --:--:-- --
-          companyName: job.companyName,
-          driveDate: job.driveDate, //format: mm/dd/yyyy
-        }))
-      );
-
-      console.log("Staff ID being used:", staffId);
-
-      const insertedJobs = await db.insert(drive).values(validJobs).returning();
-      return c.json(insertedJobs, HttpStatusCodes.OK);
-    }
-
-    return c.json({ error: "Unauthorized" }, 403);
+    decoded = await verify(jwtToken, process.env.SECRET_KEY!);
+    if (!decoded) throw new Error("Invalid session");
   } catch (error) {
-    console.error("Students creation error:", error);
-    return c.json([], HttpStatusCodes.OK);
+    console.error("Session Verification Error:", error);
+    return c.json({ error: "Invalid session" }, 401);
+  }
+
+  if (decoded.role !== "super_admin") return c.json({ error: "Unauthorized" }, 403);
+  if (!decoded.id) return c.json({ error: "Super admin ID missing from token" }, 400);
+
+  const newJobs = c.req.valid("json");
+  if (!Array.isArray(newJobs)) return c.json([], HttpStatusCodes.OK);
+
+  try {
+    const validJobs = newJobs.map(job => ({
+      batch: job.batch!,
+      jobDescription: job.jobDescription!,
+      department: job.department,
+      expiration: job.expiration!,
+      companyName: job.companyName!,
+      driveDate: job.driveDate!,
+      driveLink: job.driveLink!,
+      // Remove notificationEmail from here since it’s not in the DB table
+    }));
+
+    const insertedJobs = await db.insert(drive).values(validJobs).returning();
+
+    // Send email notifications to all emails for each job
+    await Promise.all(
+      newJobs.map(job => // Use newJobs to access notificationEmail
+        Promise.all(
+          job.notificationEmail.map(email => sendJobNotificationEmail(job, email))
+        )
+      )
+    );
+
+    return c.json(insertedJobs, HttpStatusCodes.OK);
+  } catch (error) {
+    console.error("Job creation error:", error);
+    return c.json({ error: "Failed to create jobs", details: error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 };
 
