@@ -62,33 +62,33 @@ export const getOne = createRoute({
 });
 
 
-//to collect student's data
-export const createresume = createRoute({
-    path: "/student/resume",
-    method: "post",
-    request: {
-        body: jsonContentRequired(insertResumeSchema, "Add resume details for dashboard")
-    },
-    responses: {
-        [HttpStatusCodes.OK]: jsonContent(
-            selectStudentSchema,
-            "The requested student resume details"
-        ),
-        [HttpStatusCodes.BAD_REQUEST]: jsonContent(
-            createErrorSchema(insertResumeSchema),
-            "Some details are missing"
-        ),
-        [HttpStatusCodes.NOT_FOUND]: jsonContent(
-            notFoundSchema,
-            "Student not found"
-        ),
-        [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-            createErrorSchema(IdUUIDParamsSchema),
-            "Invalid ID format"
-        ),
-    },
-    middlewares: [supabaseMiddleware],
-});
+// //to collect student's data
+// export const createresume = createRoute({
+//     path: "/student/resume",
+//     method: "post",
+//     request: {
+//         body: jsonContentRequired(insertResumeSchema, "Add resume details for dashboard")
+//     },
+//     responses: {
+//         [HttpStatusCodes.OK]: jsonContent(
+//             selectStudentSchema,
+//             "The requested student resume details"
+//         ),
+//         [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+//             createErrorSchema(insertResumeSchema),
+//             "Some details are missing"
+//         ),
+//         [HttpStatusCodes.NOT_FOUND]: jsonContent(
+//             notFoundSchema,
+//             "Student not found"
+//         ),
+//         [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+//             createErrorSchema(IdUUIDParamsSchema),
+//             "Invalid ID format"
+//         ),
+//     },
+//     middlewares: [supabaseMiddleware],
+// });
 
 
 
@@ -172,38 +172,64 @@ export const applyfordrive = createRoute({
 
 
 
-export const updateResume = createRoute({
-    path: "/student/resume",
-    method: "patch",
-    request: {
-      body: jsonContentRequired(
-        z.object({}).passthrough(), // Allow any fields
-        "Update specific resume details"
-      ),
-    },
-    responses: {
-      [HttpStatusCodes.OK]: jsonContent(
-        selectStudentSchema,
-        "Updated student resume details"
-      ),
-      [HttpStatusCodes.BAD_REQUEST]: jsonContent(
-        createErrorSchema(z.object({})),
-        "Invalid update details"
-      ),
-      [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-        z.object({ error: z.string() }),
-        "Unauthorized access"
-      ),
-      [HttpStatusCodes.NOT_FOUND]: jsonContent(
-        notFoundSchema,
-        "Student not found"
-      ),
-    },
-    middlewares: [supabaseMiddleware],
-  });
+// export const updateResume = createRoute({
+//     path: "/student/resume",
+//     method: "patch",
+//     request: {
+//       body: jsonContentRequired(
+//         z.object({}).passthrough(), // Allow any fields
+//         "Update specific resume details"
+//       ),
+//     },
+//     responses: {
+//       [HttpStatusCodes.OK]: jsonContent(
+//         selectStudentSchema,
+//         "Updated student resume details"
+//       ),
+//       [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+//         createErrorSchema(z.object({})),
+//         "Invalid update details"
+//       ),
+//       [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+//         z.object({ error: z.string() }),
+//         "Unauthorized access"
+//       ),
+//       [HttpStatusCodes.NOT_FOUND]: jsonContent(
+//         notFoundSchema,
+//         "Student not found"
+//       ),
+//     },
+//     middlewares: [supabaseMiddleware],
+//   });
   
 
 //forgot password
+
+
+export const updateResume = createRoute({
+  path: "/student/resume",
+  method: "patch", // Already "patch"
+  request: {
+    body: jsonContentRequired(
+      z.object({file: z.string().optional(), // Base64 string for the file
+        fileName: z.string().optional(), // Optional filename
+        fileType: z.string().optional(),}).passthrough(), // Allow any fields
+      "Update specific resume details"
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(selectStudentSchema, "Updated student resume details"),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createErrorSchema(z.object({})),
+      "Invalid update details"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(z.object({ error: z.string() }), "Unauthorized access"),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(notFoundSchema, "Student not found"),
+  },
+  middlewares: [supabaseMiddleware],
+});
+
+
 
 export const forgotpassword = createRoute({
   path: "/student/forgot-password",
@@ -335,7 +361,6 @@ export const registerStudentSchema = z.object({
     email: z.string().email(),
     password: z.string().min(6),
     staffEmail: z.string().email()
-
 })
 
 export const registration = createRoute({
@@ -390,7 +415,7 @@ export type LoginStudentRoute = typeof loginStudent
 export type GetOneRoute = typeof getOne;
 export type ForgotPassword = typeof forgotpassword 
 export type ResetPassword = typeof resetpassword
-export type CreateResumeRoute = typeof createresume
+// export type CreateResumeRoute = typeof createresume
 export type ApplyForDriveRoute = typeof applyfordrive
 export type DisplayDrivesRoute = typeof displayDrives
 export type LogoutStudentRoute = typeof logoutStudent

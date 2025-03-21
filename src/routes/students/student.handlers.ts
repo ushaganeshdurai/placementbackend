@@ -4,10 +4,11 @@ import type { AppRouteHandler } from "@/lib/types";
 import { decode } from 'hono/jwt';
 import db from "@/db";
 import bcrypt from 'bcryptjs';
-import type { ApplyForDriveRoute, CreateResumeRoute, DisplayDrivesRoute, GetOneRoute, LoginStudentRoute, UpdatePasswordRoute, RegStudentRoute, ForgotPassword, ResetPassword } from "./student.routes";
+import type { ApplyForDriveRoute, CreateResumeRoute, DisplayDrivesRoute, GetOneRoute, LoginStudentRoute, UpdatePasswordRoute, RegStudentRoute, ForgotPassword, ResetPassword, UpdateResumeRoute } from "./student.routes";
 import { students, applications, drive, staff } from "drizzle/schema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { jwt, sign, verify } from "hono/jwt";
+import { createClient } from "@supabase/supabase-js";
 
 export const loginStudent: AppRouteHandler<LoginStudentRoute> = async (c) => {
   deleteCookie(c, "staff_session");
@@ -231,6 +232,7 @@ export const getResume: AppRouteHandler<GetResumeRoute> = async (c) => {
         noOfArrears: students.noOfArrears,
         skillSet: students.skillSet,
         languagesKnown: students.languagesKnown,
+        url:students.url,
         linkedinUrl: students.linkedinUrl,
         githubUrl: students.githubUrl,
         batch: students.batch,
@@ -296,110 +298,601 @@ export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
   }
 };
 
-export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
-  try {
-    const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
-    if (!jwtToken) {
-      return c.json({ error: "Unauthorized: No session found" }, 401);
-    }
+// export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+//     const supabase = c.get("supabase")
 
-    let studentId = null;
-    let userRole = null;
+//     let studentId = null;
+//     let userRole = null;
 
-    const SECRET_KEY = process.env.SECRET_KEY!;
-    try {
-      const decoded = await verify(jwtToken, SECRET_KEY);
-      console.log("Decoded JWT:", decoded);
-      if (!decoded || !decoded.student_id) {
-        return c.json({ error: "Invalid session: Student ID missing" }, 401);
-      }
-      studentId = decoded.student_id;
-      userRole = decoded.role;
-    } catch (error) {
-      console.error("Session Verification Error:", error);
-      return c.json({ error: "Invalid session" }, 401);
-    }
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       console.log("Decoded JWT:", decoded);
+//       if (!decoded || !decoded.student_id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.student_id;
+//       userRole = decoded.role;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
 
-    const resume = c.req.valid("json");
-    if (!resume || typeof resume !== "object") {
-      return c.json({ error: "Invalid resume details" }, 400);
-    }
+//     const resume = c.req.valid("json") as {
+//       url?: string;
+//       file?: string;
+//       fileName?: string;
+//       fileType?: string;
+//       phoneNumber: number;
+//       skillSet: string | null;
+//       noOfArrears: number;
+//       languagesKnown: string | null;
+//       githubUrl: string;
+//       linkedinUrl: string;
+//       tenthMark: number | null;
+//       cgpa: number | null;
+//       batch: string;
+//       department: string | null;
+//       twelfthMark: number | null;
+//     };
+    
+//     if (!resume || typeof resume !== "object") {
+//       return c.json({ error: "Invalid resume details" }, 400);
+//     }
 
-    if (userRole === "student") {
-      const resumeDetails = {
-        phoneNumber: resume.phoneNumber,
-        skillSet: resume.skillSet,
-        noOfArrears: resume.noOfArrears,
-        languagesKnown: resume.languagesKnown,
-        githubUrl: resume.githubUrl,
-        linkedinUrl: resume.linkedinUrl,
-        tenthMark: resume.tenthMark,
-        cgpa: resume.cgpa,
-        batch: resume.batch,
-        department: resume.department,
-        twelfthMark: resume.twelfthMark,
-      };
+//     let resumeUrl = resume.url; 
 
-      const updatedResume = await db
-        .update(students)
-        .set(resumeDetails)
-        .where(eq(students.studentId, studentId))
-        .returning();
+//     if (resume.file) {
+//       const fileBuffer = Buffer.from(resume.file, "base64");
+//       const fileName = `uploads/${Date.now()}_${resume.fileName}`;
 
-      return c.json(updatedResume, HttpStatusCodes.OK);
-    }
+//       const { data, error } = await supabase.storage
+//         .from("bucky")
+//         .upload(fileName, fileBuffer, {
+//           contentType: resume.fileType,
+//           cacheControl: "3600",
+//           upsert: false,
+//         });
 
-    return c.json({ error: "Unauthorized" }, 403);
-  } catch (error) {
-    console.error("Resume creation error:", error);
-    return c.json({ error: "Something went wrong" }, 500);
-  }
-};
+//       if (error) {
+//         console.error("Supabase Upload Error:", error);
+//         return c.json({ error: "File upload failed" }, 500);
+//       }
 
-export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
-  try {
-    const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
-    if (!jwtToken) {
-      return c.json({ error: "Unauthorized: No session found" }, 401);
-    }
+//       resumeUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+//     }
 
-    let studentId = null;
-    let userRole = null;
+//     if (userRole === "student") {
+//       const resumeDetails = {
+//         phoneNumber: resume.phoneNumber,
+//         skillSet: resume.skillSet,
+//         noOfArrears: resume.noOfArrears,
+//         languagesKnown: resume.languagesKnown,
+//         githubUrl: resume.githubUrl,
+//         linkedinUrl: resume.linkedinUrl,
+//         tenthMark: resume.tenthMark,
+//         url: resumeUrl, 
+//         cgpa: resume.cgpa,
+//         batch: resume.batch,
+//         department: resume.department,
+//         twelfthMark: resume.twelfthMark,
+//       };
 
-    const SECRET_KEY = process.env.SECRET_KEY!;
-    try {
-      const decoded = await verify(jwtToken, SECRET_KEY);
-      if (!decoded || !decoded.student_id) {
-        return c.json({ error: "Invalid session: Student ID missing" }, 401);
-      }
-      studentId = decoded.student_id;
-      userRole = decoded.role;
-    } catch (error) {
-      console.error("Session Verification Error:", error);
-      return c.json({ error: "Invalid session" }, 401);
-    }
+//       const updatedResume = await db
+//         .update(students)
+//         .set(resumeDetails)
+//         .where(eq(students.studentId, studentId))
+//         .returning();
 
-    const updateData = c.req.valid("json");
-    if (!updateData || typeof updateData !== "object") {
-      return c.json({ error: "Invalid update details" }, 400);
-    }
+//       return c.json(updatedResume, HttpStatusCodes.OK);
+//     }
 
-    if (userRole === "student") {
-      const updatedResume = await db
-        .update(students)
-        .set(updateData)
-        .where(eq(students.studentId, studentId))
-        .returning();
+//     return c.json({ error: "Unauthorized" }, 403);
+//   } catch (error) {
+//     console.error("Resume creation error:", error);
+//     return c.json({ error: "Something went wrong" }, 500);
+//   }
+// };
 
-      return c.json(updatedResume[0], HttpStatusCodes.OK);
-    }
 
-    return c.json({ error: "Unauthorized" }, 403);
-  } catch (error) {
-    console.error("Resume update error:", error);
-    return c.json({ error: "Something went wrong" }, 500);
-  }
-};
+
+// export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     const supabase = c.get("supabase");
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     let studentId: string;
+//     let userRole: string;
+
+//     // Verify JWT token
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       console.log("Decoded JWT:", decoded);
+//       if (!decoded || !decoded.student_id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.student_id as string;
+//       userRole = decoded.role as string;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session: Token verification failed" }, 401);
+//     }
+
+//     // Check user role
+//     if (userRole !== "student") {
+//       return c.json({ error: "Unauthorized: Insufficient permissions" }, 403);
+//     }
+
+//     // Validate and parse request body
+//     const resume = c.req.valid("json") as {
+//       url?: string;
+//       file?: string;
+//       fileName?: string;
+//       fileType?: string;
+//       phoneNumber?: number;
+//       skillSet?: string | null;
+//       noOfArrears?: number;
+//       languagesKnown?: string | null;
+//       githubUrl?: string;
+//       linkedinUrl?: string;
+//       tenthMark?: number | null;
+//       cgpa?: number | null;
+//       batch?: string;
+//       department?: string | null;
+//       twelfthMark?: number | null;
+//     };
+
+//     if (!resume || typeof resume !== "object") {
+//       return c.json({ error: "Invalid resume details" }, 400);
+//     }
+
+//     let resumeUrl = resume.url;
+
+//     // Handle file upload for profile picture
+//     if (resume.file) {
+//       if (!resume.fileType || !resume.fileType.startsWith("image/")) {
+//         return c.json({ error: "Invalid file type: Only images are allowed" }, 400);
+//       }
+
+//       const fileBuffer = Buffer.from(resume.file, "base64");
+//       const fileName = resume.fileName
+//         ? `uploads/${Date.now()}_${resume.fileName}`
+//         : `uploads/${Date.now()}_profile-pic`;
+
+//       const { data, error } = await supabase.storage
+//         .from("bucky")
+//         .upload(fileName, fileBuffer, {
+//           contentType: resume.fileType,
+//           cacheControl: "3600",
+//           upsert: true, // Overwrite if file exists with the same name
+//         });
+
+//       if (error) {
+//         console.error("Supabase Upload Error:", error);
+//         return c.json({ error: `File upload failed: ${error.message}` }, 500);
+//       }
+
+//       resumeUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+//       console.log("Uploaded file URL:", resumeUrl);
+//     }
+
+//     // Prepare update data
+//     const resumeDetails: Partial<typeof students.$inferInsert> = {
+//       ...(resume.phoneNumber !== undefined && { phoneNumber: resume.phoneNumber }),
+//       ...(resume.skillSet !== undefined && { skillSet: resume.skillSet }),
+//       ...(resume.noOfArrears !== undefined && { noOfArrears: resume.noOfArrears }),
+//       ...(resume.languagesKnown !== undefined && { languagesKnown: resume.languagesKnown }),
+//       ...(resume.githubUrl !== undefined && { githubUrl: resume.githubUrl }),
+//       ...(resume.linkedinUrl !== undefined && { linkedinUrl: resume.linkedinUrl }),
+//       ...(resume.tenthMark !== undefined && { tenthMark: resume.tenthMark }),
+//       ...(resumeUrl !== undefined && { url: resumeUrl }),
+//       ...(resume.cgpa !== undefined && { cgpa: resume.cgpa }),
+//       ...(resume.batch !== undefined && { batch: resume.batch }),
+//       ...(resume.department !== undefined && { department: resume.department }),
+//       ...(resume.twelfthMark !== undefined && { twelfthMark: resume.twelfthMark }),
+//     };
+
+//     // Update student data in the database
+//     const updatedResume = await db
+//       .update(students)
+//       .set(resumeDetails)
+//       .where(eq(students.studentId, studentId))
+//       .returning();
+
+//     if (updatedResume.length === 0) {
+//       return c.json({ error: "Student not found" }, 404);
+//     }
+
+//     return c.json(updatedResume[0], HttpStatusCodes.OK);
+//   } catch (error) {
+//     console.error("Resume creation error:", error);
+//     return c.json({ error: "Internal server error" }, 500);
+//   }
+// };
+
+
+
+
+// export const resumedetails: AppRouteHandler<CreateResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     const supabase = c.get("supabase");
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     let studentId: string;
+//     let userRole: string;
+
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       if (!decoded || !decoded.student_id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.student_id as string;
+//       userRole = decoded.role as string;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     if (userRole !== "student") {
+//       return c.json({ error: "Unauthorized" }, 403);
+//     }
+
+//     const resume = c.req.valid("json");
+
+//     let resumeUrl = resume.url;
+
+//     if (resume.file) {
+//       const fileBuffer = Buffer.from(resume.file, "base64");
+//       const fileName = `uploads/${Date.now()}_${resume.fileName || 'profile-pic'}`;
+
+//       const { data, error } = await supabase.storage
+//         .from("bucky")
+//         .upload(fileName, fileBuffer, {
+//           contentType: resume.fileType || 'image/jpeg',
+//           cacheControl: "3600",
+//           upsert: true,
+//         });
+
+//       if (error) {
+//         console.error("Supabase Upload Error:", error);
+//         return c.json({ error: "File upload failed" }, 500);
+//       }
+
+//       resumeUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+//     }
+
+//     const resumeDetails = {
+//       ...(resume.phoneNumber !== undefined && { phoneNumber: resume.phoneNumber }),
+//       ...(resume.skillSet !== undefined && { skillSet: resume.skillSet }),
+//       ...(resume.noOfArrears !== undefined && { noOfArrears: resume.noOfArrears }),
+//       ...(resume.languagesKnown !== undefined && { languagesKnown: resume.languagesKnown }),
+//       ...(resume.githubUrl !== undefined && { githubUrl: resume.githubUrl }),
+//       ...(resume.linkedinUrl !== undefined && { linkedinUrl: resume.linkedinUrl }),
+//       ...(resume.tenthMark !== undefined && { tenthMark: resume.tenthMark }),
+//       ...(resumeUrl !== undefined && { url: resumeUrl }),
+//       ...(resume.cgpa !== undefined && { cgpa: resume.cgpa }),
+//       ...(resume.batch !== undefined && { batch: resume.batch }),
+//       ...(resume.department !== undefined && { department: resume.department }),
+//       ...(resume.twelfthMark !== undefined && { twelfthMark: resume.twelfthMark }),
+//     };
+
+//     const updatedResume = await db
+//       .update(students)
+//       .set(resumeDetails)
+//       .where(eq(students.studentId, studentId))
+//       .returning();
+
+//     return c.json(updatedResume[0], HttpStatusCodes.OK);
+//   } catch (error) {
+//     console.error("Resume creation error:", error);
+//     return c.json({ error: "Something went wrong" }, 500);
+//   }
+// };
+
+// export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     let studentId = null;
+//     let userRole = null;
+
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       if (!decoded || !decoded.student_id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.student_id;
+//       userRole = decoded.role;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     const updateData = c.req.valid("json");
+//     if (!updateData || typeof updateData !== "object") {
+//       return c.json({ error: "Invalid update details" }, 400);
+//     }
+
+//     if (userRole === "student") {
+//       const updatedResume = await db
+//         .update(students)
+//         .set(updateData)
+//         .where(eq(students.studentId, studentId))
+//         .returning();
+
+//       return c.json(updatedResume[0], HttpStatusCodes.OK);
+//     }
+
+//     return c.json({ error: "Unauthorized" }, 403);
+//   } catch (error) {
+//     console.error("Resume update error:", error);
+//     return c.json({ error: "Something went wrong" }, 500);
+//   }
+// };
+
+
+
+// export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     let studentId: string;
+//     let userRole: string;
+
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       if (!decoded || !decoded.student_id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.student_id as string;
+//       userRole = decoded.role as string;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     const updateData = c.req.valid("json");
+//     if (!updateData || typeof updateData !== "object") {
+//       return c.json({ error: "Invalid update details" }, 400);
+//     }
+
+//     if (userRole === "student") {
+//       const updatedResume = await db
+//         .update(students)
+//         .set(updateData)
+//         .where(eq(students.studentId, studentId))
+//         .returning();
+
+//       if (updatedResume.length === 0) {
+//         return c.json({ error: "Student not found" }, 404);
+//       }
+
+//       return c.json(updatedResume[0], HttpStatusCodes.OK);
+//     }
+
+//     return c.json({ error: "Unauthorized" }, 403);
+//   } catch (error) {
+//     console.error("Resume update error:", error);
+//     return c.json({ error: "Something went wrong" }, 500);
+//   }
+// };
+
+
+
+
+// export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     let studentId: string;
+//     let userRole: string;
+
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       if (!decoded || !decoded.student_id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.student_id as string;
+//       userRole = decoded.role as string;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     const updateData = c.req.valid("json");
+//     if (!updateData || typeof updateData !== "object") {
+//       return c.json({ error: "Invalid update details" }, 400);
+//     }
+
+//     if (userRole === "student") {
+//       const updatedResume = await db
+//         .update(students)
+//         .set(updateData)
+//         .where(eq(students.studentId, studentId))
+//         .returning();
+
+//       if (updatedResume.length === 0) {
+//         return c.json({ error: "Student not found" }, 404);
+//       }
+
+//       return c.json(updatedResume[0], HttpStatusCodes.OK);
+//     }
+
+//     return c.json({ error: "Unauthorized" }, 403);
+//   } catch (error) {
+//     console.error("Resume update error:", error);
+//     return c.json({ error: "Something went wrong" }, 500);
+//   }
+// };
+
+
+
+
+
+// export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     let studentId: string;
+//     let userRole: string;
+
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       if (!decoded || !decoded.student_id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.student_id as string;
+//       userRole = decoded.role as string;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     const updateData = c.req.valid("json");
+//     if (!updateData || typeof updateData !== "object") {
+//       return c.json({ error: "Invalid update details" }, 400);
+//     }
+
+
+
+
+//     if (userRole === "student") {
+//       const updatedResume = await db
+//         .update(students)
+//         .set(updateData)
+//         .where(eq(students.studentId, studentId))
+//         .returning();
+
+//       if (updatedResume.length === 0) {
+//         return c.json({ error: "Student not found" }, 404);
+//       }
+
+//       return c.json(updatedResume[0], HttpStatusCodes.OK);
+//     }
+
+//     return c.json({ error: "Unauthorized" }, 403);
+//   } catch (error) {
+//     console.error("Resume update error:", error);
+//     return c.json({ error: "Something went wrong" }, 500);
+//   }
+// };
+
+// export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
+//   try {
+//     const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+//     if (!jwtToken) {
+//       return c.json({ error: "Unauthorized: No session found" }, 401);
+//     }
+
+//     const supabase = c.get("supabase"); // Added Supabase client
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     let studentId: string;
+//     let userRole: string;
+
+//     try {
+//       const decoded = await verify(jwtToken, SECRET_KEY);
+//       if (!decoded || !decoded.student_id) {
+//         return c.json({ error: "Invalid session: Student ID missing" }, 401);
+//       }
+//       studentId = decoded.student_id as string;
+//       userRole = decoded.role as string;
+//     } catch (error) {
+//       console.error("Session Verification Error:", error);
+//       return c.json({ error: "Invalid session" }, 401);
+//     }
+
+//     const updateData = c.req.valid("json");
+//     if (!updateData || typeof updateData !== "object") {
+//       return c.json({ error: "Invalid update details" }, 400);
+//     }
+
+//     let resumeUrl = updateData.url; // Extract existing URL if provided
+
+//     // Handle file upload with Supabase
+//     if (updateData.file) {
+//       const fileBuffer = Buffer.from(updateData.file, "base64");
+//       const fileName = updateData.fileName
+//         ? `uploads/${Date.now()}_${updateData.fileName}`
+//         : `uploads/${Date.now()}_profile-pic`;
+
+//       const { data, error } = await supabase.storage
+//         .from("bucky")
+//         .upload(fileName, fileBuffer, {
+//           contentType: updateData.fileType || 'image/jpeg',
+//           cacheControl: "3600",
+//           upsert: true,
+//         });
+
+//       if (error) {
+//         console.error("Supabase Upload Error:", error);
+//         return c.json({ error: "File upload failed" }, 500);
+//       }
+
+//       resumeUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+//     }
+
+//     if (userRole === "student") {
+//       // Merge updateData with the new resumeUrl if applicable
+//       const resumeDetails = {
+//         ...updateData,
+//         ...(resumeUrl !== undefined && { url: resumeUrl }), // Override url with new value if file was uploaded
+//       };
+
+//       const updatedResume = await db
+//         .update(students)
+//         .set(resumeDetails)
+//         .where(eq(students.studentId, studentId))
+//         .returning();
+
+//       if (updatedResume.length === 0) {
+//         return c.json({ error: "Student not found" }, 404);
+//       }
+
+//       return c.json(updatedResume[0], HttpStatusCodes.OK);
+//     }
+
+//     return c.json({ error: "Unauthorized" }, 403);
+//   } catch (error) {
+//     console.error("Resume update error:", error);
+//     return c.json({ error: "Something went wrong" }, 500);
+//   }
+// };
+
+
+
+
+
+
+
 
 export const applyForDrive: AppRouteHandler<ApplyForDriveRoute> = async (c) => {
   deleteCookie(c, "staff_session");
@@ -599,5 +1092,103 @@ export const resetPassword: AppRouteHandler<ResetPassword> = async (c) => {
   } catch (error) {
     console.error('Internal server error:', error);
     return c.json({ error: 'Something went wrong' }, 500);
+  }
+};
+
+
+
+
+export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "student_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let supabase = c.get("supabase");
+    if (!supabase) {
+      console.warn("Supabase client not found in context. Initializing manually.");
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error("SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment variables.");
+      }
+      supabase = createClient(supabaseUrl, supabaseKey);
+    }
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    let studentId: string;
+    let userRole: string;
+
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded || !decoded.student_id) {
+        return c.json({ error: "Invalid session: Student ID missing" }, 401);
+      }
+      studentId = decoded.student_id as string;
+      userRole = decoded.role as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    const updateData = c.req.valid("json");
+    if (!updateData || typeof updateData !== "object") {
+      return c.json({ error: "Invalid update details" }, 400);
+    }
+
+    let resumeUrl = updateData.url; // Extract existing URL if provided
+
+    // Handle file upload with Supabase
+    if (updateData.file) {
+      if (typeof updateData.file !== "string") {
+        return c.json({ error: "Invalid file: Must be a base64-encoded string" }, 400);
+      }
+
+      const fileBuffer = Buffer.from(updateData.file, "base64");
+      const fileName = updateData.fileName
+        ? `uploads/${Date.now()}_${updateData.fileName}`
+        : `uploads/${Date.now()}_profile-pic`;
+
+      const { data, error } = await supabase.storage
+        .from("bucky")
+        .upload(fileName, fileBuffer, {
+          contentType: updateData.fileType || "image/jpeg",
+          cacheControl: "3600",
+          upsert: true,
+        });
+
+      if (error) {
+        console.error("Supabase Upload Error:", error);
+        return c.json({ error: `File upload failed: ${error.message}` }, 500);
+      }
+
+      resumeUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+      console.log("Uploaded file URL:", resumeUrl);
+    }
+
+    if (userRole === "student") {
+      const resumeDetails = {
+        ...updateData,
+        ...(resumeUrl !== undefined && { url: resumeUrl }), // Override url with new value if file was uploaded
+      };
+
+      const updatedResume = await db
+        .update(students)
+        .set(resumeDetails)
+        .where(eq(students.studentId, studentId))
+        .returning();
+
+      if (updatedResume.length === 0) {
+        return c.json({ error: "Student not found" }, 404);
+      }
+
+      return c.json(updatedResume[0], HttpStatusCodes.OK);
+    }
+
+    return c.json({ error: "Unauthorized" }, 403);
+  } catch (error) {
+    console.error("Resume update error:", error);
+    return c.json({ error: "Something went wrong" }, 500);
   }
 };

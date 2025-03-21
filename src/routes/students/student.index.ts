@@ -6,7 +6,7 @@ import * as routes from "./student.routes";
 const router = createRouter()
   .openapi(routes.loginStudent, handlers.loginStudent)
   .openapi(routes.getOne, handlers.getOne)
-  .openapi(routes.createresume, handlers.resumedetails)
+  // .openapi(routes.createresume, handlers.resumedetails)
   .openapi(routes.applyfordrive, handlers.applyForDrive)
   .openapi(routes.forgotpassword, handlers.forgotPassword)
   .openapi(routes.resetpassword, handlers.resetPassword)
