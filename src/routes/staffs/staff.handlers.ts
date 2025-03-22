@@ -3,7 +3,7 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
-import type { BulkUploadStudentsRoute, CreateEventsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, FeedGroupMailRoute, ForgotPassword, GetFeedGroupMailRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, ResetPassword, UpdatePasswordRoute } from "./staff.routes";
+import type { BulkUploadStudentsRoute, CreateEventsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, FeedGroupMailRoute, ForgotPassword, GetFeedGroupMailRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, PlacedStudentsRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, ResetPassword, UpdatePasswordRoute } from "./staff.routes";
 import { applications, drive, events, groupMails, placedOrNot, staff, students } from "drizzle/schema";
 import { insertStudentSchema } from "@/db/schemas/studentSchema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
@@ -470,7 +470,7 @@ export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) =>
 
 export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) => {
   try {
-    const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+    const jwtToken = getCookie(c, "staff_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found", success: false } as never, 401);
     }
@@ -501,15 +501,28 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
     }
 
     if (userRole === "staff") {
-      console.log("Updating placedstatus for students:", placed);
+      console.log("Updating placed status for students:", placed);
 
-      const updatedStudents = await db
-        .update(students)
-        .set({ placedStatus: "yes" })
-        .where(inArray(students.email, placed.map((s) => s.email)));
+      for (const student of placed) {
+        const { email, companyPlacedIn } = student;
 
-      console.log("Updated Students:", updatedStudents);
-      return c.json(placed, 200);
+        const existingStudent = await db.select().from(students)
+          .where(eq(student.email!, email))
+          .limit(1);
+
+        if (!existingStudent) {
+          return c.json({ error: `Student with email ${email} not found`, success: false } as never, 404);
+        }
+
+        const updatedStudent = await db
+          .update(students)
+          .set({ placedStatus: "yes", companyPlacedIn })
+          .where(eq(students.email, email));
+
+        console.log(`Updated student ${email}:`, updatedStudent);
+      }
+
+      return c.json({ success: true, message: "Placed students updated successfully" }, 200);
     }
 
     return c.json({ error: "Unauthorized", success: false } as never, 403);
@@ -520,12 +533,7 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
 };
 
 
-
-
 export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
-  console.log("1. Entering bulkUploadStudents handler");
-  console.log("2. Request Headers:", c.req.headers);
-
   const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
   if (!jwtToken) {
     console.log("3. No session found");
@@ -908,9 +916,9 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedGroupMailRoute> = async (c
   }
 
   try {
-    const groupMailList = await db.select({email: groupMails.email}).from(groupMails).execute();
+    const groupMailList = await db.select({ email: groupMails.email }).from(groupMails).execute();
     return c.json({
-    groupMailList,
+      groupMailList,
     }, 200);
 
   } catch (error) {
@@ -1074,7 +1082,7 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
       event_name: eventData.event_name,
       event_link: eventData.event_link,
       date: eventData.date,
-      url: posterUrl || null, 
+      url: posterUrl || null,
     };
 
     const insertedEvent = await db

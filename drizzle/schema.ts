@@ -21,6 +21,7 @@ export const students = pgTable("students", {
 	staffId: uuid("staff_id"),
 	studentId: uuid("student_id").defaultRandom().primaryKey().notNull(),
 	password: text(),
+	companyPlacedIn: text("company_placed_in"),
 	url:text('url'),
 	email: text().notNull(),
 	skillSet: text("skill_set"),

@@ -11,6 +11,7 @@ export const students = pgTable('students', {
   studentId: uuid('student_id').defaultRandom().primaryKey(),
   password: text('password'),
   url:text('url'),
+  companyPlacedIn: text('company_placed_in'),
   userId: text('user_id'),
   placedStatus: placed_or_not("placed_status"),
   email: text('email_id').notNull(),
@@ -21,7 +22,7 @@ export const students = pgTable('students', {
   tenthMark: doublePrecision('tenth_mark'),
   twelfthMark: doublePrecision('twelfth_mark'),
   cgpa: doublePrecision('cgpa'),
-  batch: text('batch'), // Fixed column name from text('')
+  batch: text('batch'), 
   linkedinUrl: text('linkedin_url'),
   githubUrl: text('github_url'),
   regNo: text('reg_no').unique(),
@@ -54,6 +55,7 @@ export const insertStudentSchema = createInsertSchema(students).required({
   tenthMark: true,
   cgpa: true,
   name: true,
+  companyPlacedIn: true,
   regNo: true,
   rollNo: true,
   // Removed batch from omit to allow it

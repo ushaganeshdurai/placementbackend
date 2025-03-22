@@ -46,6 +46,7 @@ const router = createRouter()
             name: students.name,
             department: students.department,
             url: students.url,
+            companyPlacedIn: students.companyPlacedIn,
             batch: students.batch,
           })
           .from(students)

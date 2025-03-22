@@ -228,6 +228,7 @@ export const bulkuploadstudents = createRoute({
 const placedStudentsSchema = createInsertSchema(students)
   .required({
     email: true,
+    companyPlacedIn:true
   }).omit({
     studentId: true,
     userId: true,
@@ -235,6 +236,7 @@ const placedStudentsSchema = createInsertSchema(students)
     placedStatus: true,
     staffId: true,
     skillSet: true,
+    url:true,
     languagesKnown: true,
     phoneNumber: true,
     noOfArrears: true,
@@ -249,27 +251,28 @@ const placedStudentsSchema = createInsertSchema(students)
     batch: true, password: true
   })
 
-export const placedstudents = createRoute({
-  path: "/staff/updateplacedstudentslist",
-  method: "post",
-  request: {
-    body: jsonContentRequired(
-      z.array(placedStudentsSchema), "Updated status"
-    )
-  }, responses: {
-    [HttpStatusCodes.OK]: {
-      description: "Updated placed students list"
+  export const placedstudentsRoute = createRoute({
+    path: "/staff/updateplacedstudentslist",
+    method: "post",
+    request: {
+      body: jsonContentRequired(
+        z.array(placedStudentsSchema), "Updated status"
+      )
     },
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createErrorSchema(loginStaffSchema),
-      "Unauthorized access - Token required"
-    ),
-    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      createErrorSchema(placedStudentsSchema),
-      "The validation error(s)",
-    ),
-  },
-})
+    responses: {
+      [HttpStatusCodes.OK]: {
+        description: "Updated placed students list"
+      },
+      [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+        createErrorSchema(loginStaffSchema),
+        "Unauthorized access - Token required"
+      ),
+      [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+        createErrorSchema(placedStudentsSchema),
+        "The validation error(s)",
+      ),
+    },
+  });
 
 
 export const logoutStaff = createRoute({
@@ -462,7 +465,7 @@ export const createeventsroute = createRoute({
 
 export type ForgotPassword = typeof forgotpassword
 export type ResetPassword = typeof resetpassword
-export type PlacedStudentsRoute = typeof placedstudents;
+export type PlacedStudentsRoute = typeof placedstudentsRoute;
 export type LogoutStaffRoute = typeof logoutStaff;
 export type FeedGroupMailRoute = typeof feedGroupMail
 export type LoginStaffRoute = typeof loginStaff;
