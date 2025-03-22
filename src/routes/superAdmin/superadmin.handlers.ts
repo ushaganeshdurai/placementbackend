@@ -3,7 +3,7 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from "bcryptjs";
-import { applications, drive, students, superAdmin, staff, profiles, groupMails } from "drizzle/schema";
+import { applications, drive, students, superAdmin, staff, profiles, groupMails, events } from "drizzle/schema";
 import type {
   BulkUploadStudentsRoute,
   CreateJobsRoute,
@@ -16,13 +16,15 @@ import type {
   RemoveStaffRoute,
   LogoutAdminRoute,
   FeedGroupMailRoute,
-  GetFeedMailRoute
+  GetFeedMailRoute,
+  CreateEventsRoute
 
 } from "./superadmin.routes";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 import { oauth } from "../auth/auth.routes";
 import nodemailer from 'nodemailer';
+import { createClient } from "@supabase/supabase-js";
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -760,5 +762,101 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => 
   } catch (error) {
     console.error("Database query error:", error);
     return c.json({ error: "Failed to fetch data", success: false }, 500);
+  }
+};
+
+
+export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
+  try {
+    // Session validation
+    const jwtToken = getCookie(c, "admin_session")||getCookie(c,"oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, HttpStatusCodes.UNAUTHORIZED);
+    }
+
+    // Initialize Supabase
+    let supabase = c.get("supabase");
+    if (!supabase) {
+      console.warn("Supabase client not found in context. Initializing manually.");
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment variables.");
+      }
+      supabase = createClient(supabaseUrl, supabaseKey);
+    }
+
+    // Verify session token
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    let userRole: string;
+
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded || !decoded.role) {
+        return c.json({ error: "Invalid session: Staff ID missing" }, HttpStatusCodes.UNAUTHORIZED);
+      }
+      userRole = decoded.role as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
+    }
+
+    // Validate and parse the request body
+    const eventData = c.req.valid("json");
+    if (!eventData || typeof eventData !== "object") {
+      return c.json({ error: "Invalid event data" }, HttpStatusCodes.BAD_REQUEST);
+    }
+
+    let posterUrl = eventData.url; // Use existing URL if provided
+
+    // Handle file upload
+    if (eventData.file) {
+      if (typeof eventData.file !== "string") {
+        return c.json({ error: "Invalid file: Must be a base64-encoded string" }, HttpStatusCodes.BAD_REQUEST);
+      }
+
+      const fileBuffer = Buffer.from(eventData.file, "base64");
+      const fileName = eventData.fileName
+        ? `events/${Date.now()}_${eventData.fileName}`
+        : `events/${Date.now()}_poster`;
+
+      const { data, error } = await supabase.storage
+        .from("bucky")
+        .upload(fileName, fileBuffer, {
+          contentType: eventData.fileType || "image/jpeg",
+          cacheControl: "3600",
+          upsert: true,
+        });
+
+      if (error) {
+        console.error("Supabase Upload Error:", error);
+        return c.json({ error: `File upload failed: ${error.message}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+      }
+
+      // Get public URL
+      posterUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+      console.log("Uploaded file URL:", posterUrl);
+    }
+
+    const newEvent = {
+      event_name: eventData.event_name,
+      event_link: eventData.event_link,
+      date: eventData.date,
+      url: posterUrl || null, 
+    };
+
+    const insertedEvent = await db
+      .insert(events)
+      .values(newEvent)
+      .returning();
+
+    if (insertedEvent.length === 0) {
+      return c.json({ error: "Failed to create event" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+    }
+
+    return c.json(insertedEvent[0], HttpStatusCodes.OK);
+  } catch (error) {
+    console.error("Event creation error:", error);
+    return c.json({ error: "Something went wrong" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 };

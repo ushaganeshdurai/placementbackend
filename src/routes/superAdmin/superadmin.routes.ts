@@ -12,7 +12,6 @@ import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
 import { groupMails, students } from "drizzle/schema";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
-import { insertEventSchema } from "@/db/schemas/eventSchema";
 
 
 
@@ -143,7 +142,7 @@ export const insertStudentsSchema = createInsertSchema(students)
     name: true,
     regNo: true,
     rollNo: true,
-    year: true,
+    batch: true,
   }) .extend({
     staffEmail: z.string().email(),
   });
@@ -383,21 +382,46 @@ export const createeventsroute = createRoute({
   method: "post",
   request: {
     body: jsonContentRequired(
-      z.array(insertEventSchema),  
-      "Add multiple events",
+      z.object({
+        event_name: z.string().min(3, "Event name is required"),
+        event_link: z.string().url("Invalid event link format"),
+        date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+          message: "Invalid date format",
+        }),
+        file: z.string().optional(),      
+        fileName: z.string().optional(),
+        fileType: z.string().optional(),  
+      }).passthrough(),
+      "Event details including optional file upload"
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContentRequired(
-      z.array(insertEventSchema),  
-      "Created many events",
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({
+        id: z.number(),
+        event_name: z.string(),
+        event_link: z.string(),
+        date: z.string(),
+        url: z.string().nullable(),
+        staff_id: z.string(),
+      }),
+      "Successfully created event"
     ),
-    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      createErrorSchema(insertEventSchema),
-      "The validation error(s)",
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      z.object({ error: z.string() }),
+      "Invalid event data"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      z.object({ error: z.string() }),
+      "Unauthorized access"
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      z.object({ error: z.string() }),
+      "Server error during event creation"
     ),
   },
 });
+
 
 
 
