@@ -123,8 +123,8 @@ export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
 };
 
 // Create Jobs with Email Notification
-export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
-  const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+export const createjobs: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
+  const jwtToken = getCookie(c, "staff_session");
   if (!jwtToken) return c.json({ error: "Unauthorized: No session found" }, 401);
 
   let decoded;
@@ -136,8 +136,8 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
     return c.json({ error: "Invalid session" }, 401);
   }
 
-  if (decoded.role !== "super_admin") return c.json({ error: "Unauthorized" }, 403);
-  if (!decoded.id) return c.json({ error: "Super admin ID missing from token" }, 400);
+  if (decoded.role !== "staff") return c.json({ error: "Unauthorized" }, 403);
+  if (!decoded.staff_id) return c.json({ error: "Staff ID missing from token" }, 400);
 
   const newJobs = c.req.valid("json");
   if (!Array.isArray(newJobs)) return c.json([], HttpStatusCodes.OK);
@@ -151,14 +151,12 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
       companyName: job.companyName!,
       driveDate: job.driveDate!,
       driveLink: job.driveLink!,
-      // Remove notificationEmail from here since it’s not in the DB table
     }));
 
     const insertedJobs = await db.insert(drive).values(validJobs).returning();
 
-    // Send email notifications to all emails for each job
     await Promise.all(
-      newJobs.map(job => // Use newJobs to access notificationEmail
+      newJobs.map(job => 
         Promise.all(
           job.notificationEmail.map(email => sendJobNotificationEmail(job, email))
         )

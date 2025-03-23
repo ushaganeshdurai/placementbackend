@@ -30,8 +30,8 @@ import { createClient } from "@supabase/supabase-js";
 const transporter = nodemailer.createTransport({
   service: 'gmail', // You can use any email service
   auth: {
-    user: process.env.EMAIL_USER!, // Your email
-    pass: process.env.EMAIL_PASS!, // Your email password or app-specific password
+    user: process.env.EMAIL_USER!, 
+    pass: process.env.EMAIL_PASS!, 
   },
 });
 
@@ -330,14 +330,12 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
       companyName: job.companyName!,
       driveDate: job.driveDate!,
       driveLink: job.driveLink!,
-      // Remove notificationEmail from here since it’s not in the DB table
     }));
 
     const insertedJobs = await db.insert(drive).values(validJobs).returning();
 
-    // Send email notifications to all emails for each job
     await Promise.all(
-      newJobs.map(job => // Use newJobs to access notificationEmail
+      newJobs.map(job => 
         Promise.all(
           job.notificationEmail.map(email => sendJobNotificationEmail(job, email))
         )
@@ -350,10 +348,6 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
     return c.json({ error: "Failed to create jobs", details: error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 };
-
-
-
-
 
 
 // Remove Job
