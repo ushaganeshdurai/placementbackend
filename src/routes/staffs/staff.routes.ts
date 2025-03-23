@@ -225,54 +225,31 @@ export const bulkuploadstudents = createRoute({
 
 
 
-const placedStudentsSchema = createInsertSchema(students)
-  .required({
-    email: true,
-    companyPlacedIn:true
-  }).omit({
-    studentId: true,
-    userId: true,
-    department: true,
-    placedStatus: true,
-    staffId: true,
-    skillSet: true,
-    url:true,
-    languagesKnown: true,
-    phoneNumber: true,
-    noOfArrears: true,
-    githubUrl: true,
-    linkedinUrl: true,
-    twelfthMark: true,
-    tenthMark: true,
-    cgpa: true,
-    name: true,
-    regNo: true,
-    rollNo: true,
-    batch: true, password: true
-  })
+const placedStudentsSchema = z.object({
+  emails: z.array(z.string().email()).nonempty(),
+  companyName: z.string().nonempty(),
+});
 
-  export const placedstudentsRoute = createRoute({
-    path: "/staff/updateplacedstudentslist",
-    method: "post",
-    request: {
-      body: jsonContentRequired(
-        z.array(placedStudentsSchema), "Updated status"
-      )
+export const placedstudentsRoute = createRoute({
+  path: "/staff/updateplacedstudentslist",
+  method: "post",
+  request: {
+    body: jsonContentRequired(placedStudentsSchema, "Updated status"),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: {
+      description: "Updated placed students list",
     },
-    responses: {
-      [HttpStatusCodes.OK]: {
-        description: "Updated placed students list"
-      },
-      [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-        createErrorSchema(loginStaffSchema),
-        "Unauthorized access - Token required"
-      ),
-      [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-        createErrorSchema(placedStudentsSchema),
-        "The validation error(s)",
-      ),
-    },
-  });
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createErrorSchema(loginStaffSchema),
+      "Unauthorized access - Token required"
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(placedStudentsSchema),
+      "The validation error(s)"
+    ),
+  },
+});
 
 
 export const logoutStaff = createRoute({
@@ -462,6 +439,39 @@ export const createeventsroute = createRoute({
 });
 
 
+const updatePasswordSchema = z.object({
+  oldPassword: z.string().min(6),
+  newPassword: z.string().min(6),
+});
+export const updatepassword = createRoute({
+  path: "/staff/updatepassword",
+  method: "patch",
+  request: {
+    body: jsonContentRequired(updatePasswordSchema, "Update staff password")
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({ message: z.string() }),
+      "Password updated successfully"
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createErrorSchema(updatePasswordSchema),
+      "Missing or invalid password details"
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      z.object({ error: z.string() }),
+      "Incorrect old password"
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      notFoundSchema,
+      "Staff not found"
+    ),
+  },
+  middlewares: [supabaseMiddleware],
+
+});
+
+
 
 export type ForgotPassword = typeof forgotpassword
 export type ResetPassword = typeof resetpassword
@@ -475,6 +485,7 @@ export type RemoveStudentRoute = typeof removestudentroute;
 export type CreateJobAlertRoute = typeof createjobalertroute;
 export type RemoveJobRoute = typeof removejobroute;
 export type DisplayDrivesRoute = typeof displayDrives;
+export type UpdatePasswordRoute = typeof updatepassword
 export type BulkUploadStudentsRoute = typeof bulkuploadstudents;
 export type GetFeedGroupMailRoute = typeof getFeedGroupMail;
 export type RegisteredStudentsRoute = typeof registeredStudents; 

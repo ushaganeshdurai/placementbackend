@@ -946,6 +946,66 @@ export const applyForDrive: AppRouteHandler<ApplyForDriveRoute> = async (c) => {
   }
 };
 
+
+export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {
+  try {
+    deleteCookie(c, "staff_session")
+    deleteCookie(c, "admin_session")
+    const jwtToken = getCookie(c, "student_session") ;
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+    }
+
+    let studentId: string | null = null;
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded) throw new Error("Invalid session");
+
+      studentId = decoded.student_id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session", success: false }, 401);
+    }
+
+    if (!studentId) {
+      return c.json({ error: "Student ID missing from token", success: false }, 400);
+    }
+
+    const { oldPassword, newPassword } = c.req.valid("json");
+
+    const studentQuery = await db
+      .select()
+      .from(students)
+      .where(eq(students.studentId, studentId))
+      .limit(1)
+      .execute();
+
+    const student = studentQuery[0];
+
+    if (!student) {
+      return c.json({ error: "Staff not found", success: false }, 404);
+    }
+
+    const passwordMatches = await bcrypt.compare(student.password!, oldPassword);
+    if (!passwordMatches) {
+      return c.json({ error: "Incorrect old password", success: false }, 401);
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    await db
+      .update(students)
+      .set({ password: hashedNewPassword })
+      .where(eq(students.studentId, studentId));
+
+    return c.json({ message: "Password updated successfully", success: true }, HttpStatusCodes.OK);
+  } catch (error) {
+    console.error("Password update error:", error);
+    return c.json({ error: "Something went wrong", success: false }, 500);
+  }
+};
+
 export const removeApplication: AppRouteHandler<RemoveApplicationRoute> = async (c) => {
   deleteCookie(c, "staff_session");
   deleteCookie(c, "admin_session");

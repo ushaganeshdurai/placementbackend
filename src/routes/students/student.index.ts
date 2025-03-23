@@ -11,6 +11,7 @@ const router = createRouter()
   .openapi(routes.forgotpassword, handlers.forgotPassword)
   .openapi(routes.resetpassword, handlers.resetPassword)
   .openapi(routes.displayDrives, handlers.displayDrives)
+  .openapi(routes.updatepassword,handlers.updatepassword)
   .openapi(routes.getResume, handlers.getResume) // Add this line
   .openapi(routes.updateResume, handlers.updateResume) // Add PATCH route
   .openapi(routes.removeApplication, handlers.removeApplication) // Must be here

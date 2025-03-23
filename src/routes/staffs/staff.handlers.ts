@@ -472,7 +472,7 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
   try {
     const jwtToken = getCookie(c, "staff_session");
     if (!jwtToken) {
-      return c.json({ error: "Unauthorized: No session found", success: false } as never, 401);
+      return c.json({ error: "Unauthorized: No session found", success: false }, 401);
     }
 
     let userRole: string | null = null;
@@ -480,7 +480,7 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
 
     const SECRET_KEY = process.env.SECRET_KEY!;
     try {
-      const decoded = await verify(jwtToken!, SECRET_KEY);
+      const decoded = await verify(jwtToken, SECRET_KEY);
       console.log("Decoded JWT:", decoded);
       if (!decoded) throw new Error("Invalid session");
 
@@ -488,47 +488,70 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
       staffId = decoded.staff_id as string;
     } catch (error) {
       console.error("Session Verification Error:", error);
-      return c.json({ error: "Invalid session", success: false } as never, 401);
+      return c.json({ error: "Invalid session", success: false }, 401);
     }
 
     if (!staffId) {
-      return c.json({ error: "Staff ID missing from token", success: false } as never, 400);
+      return c.json({ error: "Staff ID missing from token", success: false }, 400);
     }
 
-    const placed = c.req.valid("json");
-    if (!Array.isArray(placed) || placed.length === 0) {
-      return c.json([], 400);
+    const { emails, companyName } = c.req.valid("json");
+    if (!Array.isArray(emails) || emails.length === 0) {
+      return c.json({ error: "Invalid request body: Expected a non-empty array of emails", success: false }, 400);
+    }
+    if (!companyName) {
+      return c.json({ error: "Invalid request body: Company name is required", success: false }, 400);
     }
 
     if (userRole === "staff") {
-      console.log("Updating placed status for students:", placed);
+      console.log("Updating placed status for students:", emails);
 
-      for (const student of placed) {
-        const { email, companyPlacedIn } = student;
+      const updatedStudents = [];
+      const errors = [];
 
-        const existingStudent = await db.select().from(students)
-          .where(eq(student.email!, email))
-          .limit(1);
+      for (const email of emails) {
+        try {
+          const existingStudent = await db
+            .select()
+            .from(students)
+            .where(eq(students.email, email))
+            .limit(1)
+            .execute();
 
-        if (!existingStudent) {
-          return c.json({ error: `Student with email ${email} not found`, success: false } as never, 404);
+          if (existingStudent.length === 0) {
+            errors.push({ email, error: "Student not found" });
+            continue;
+          }
+
+          const updatedStudent = await db
+            .update(students)
+            .set({ placedStatus: "yes", companyPlacedIn: companyName })
+            .where(eq(students.email, email))
+            .returning();
+
+          updatedStudents.push(updatedStudent[0]);
+          console.log(`Updated student ${email}:`, updatedStudent);
+        } catch (error) {
+          console.error(`Error updating student ${email}:`, error);
+          errors.push({ email, error: error.message });
         }
-
-        const updatedStudent = await db
-          .update(students)
-          .set({ placedStatus: "yes", companyPlacedIn })
-          .where(eq(students.email, email));
-
-        console.log(`Updated student ${email}:`, updatedStudent);
       }
 
-      return c.json({ success: true, message: "Placed students updated successfully" }, 200);
+      return c.json(
+        {
+          success: true,
+          message: "Placed students updated successfully",
+          updated: updatedStudents,
+          errors,
+        },
+        200
+      );
     }
 
-    return c.json({ error: "Unauthorized", success: false } as never, 403);
+    return c.json({ error: "Unauthorized", success: false }, 403);
   } catch (error) {
     console.error("Students update error:", error);
-    return c.json({ error: "An error occurred", success: false } as never, 500);
+    return c.json({ error: "An error occurred", success: false }, 500);
   }
 };
 
@@ -722,6 +745,66 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
       );
     }
     return c.json({ error: "Failed to upload students", success: false }, 500);
+  }
+};
+
+
+export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {
+  try {
+    deleteCookie(c, "student_session")
+    deleteCookie(c, "admin_session")
+    const jwtToken = getCookie(c, "staff_session") ;
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+    }
+
+    let staffId: string | null = null;
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded) throw new Error("Invalid session");
+
+      staffId = decoded.staff_id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session", success: false }, 401);
+    }
+
+    if (!staffId) {
+      return c.json({ error: "Staff ID missing from token", success: false }, 400);
+    }
+
+    const { oldPassword, newPassword } = c.req.valid("json");
+
+    const staffQuery = await db
+      .select()
+      .from(staff)
+      .where(eq(staff.staffId, staffId))
+      .limit(1)
+      .execute();
+
+    const staffy = staffQuery[0];
+
+    if (!staffy) {
+      return c.json({ error: "Staff not found", success: false }, 404);
+    }
+
+    const passwordMatches = await bcrypt.compare(staffy.password!, oldPassword);
+    if (!passwordMatches) {
+      return c.json({ error: "Incorrect old password", success: false }, 401);
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    await db
+      .update(staff)
+      .set({ password: hashedNewPassword })
+      .where(eq(staff.staffId, staffId));
+
+    return c.json({ message: "Password updated successfully", success: true }, HttpStatusCodes.OK);
+  } catch (error) {
+    console.error("Password update error:", error);
+    return c.json({ error: "Something went wrong", success: false }, 500);
   }
 };
 
