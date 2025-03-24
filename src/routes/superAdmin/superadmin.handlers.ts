@@ -22,7 +22,6 @@ import type {
 } from "./superadmin.routes";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
-import { oauth } from "../auth/auth.routes";
 import nodemailer from 'nodemailer';
 import { createClient } from "@supabase/supabase-js";
 
@@ -30,22 +29,26 @@ import { createClient } from "@supabase/supabase-js";
 const transporter = nodemailer.createTransport({
   service: 'gmail', // You can use any email service
   auth: {
-    user: process.env.EMAIL_USER!, 
-    pass: process.env.EMAIL_PASS!, 
+    user: process.env.EMAIL_USER!,
+    pass: process.env.EMAIL_PASS!,
   },
 });
 
 
-// Function to send notification email
+/**
+ * Sends a notification email about a new job posting.
+ * @param jobData - The job details including company name and description.
+ * @param recipientEmail - The email address of the recipient.
+ * @throws Will throw an error if the email fails to send.
+ */
 const sendJobNotificationEmail = async (jobData: any, recipientEmail: string) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: recipientEmail,
     subject: `New Job Posting: ${jobData.companyName}`,
     html: `
-      <h2>test</h2>
-      
-      </ul>
+      <h2>New Job Opportunity</h2>
+      <p>${jobData.jobDescription}</p>
       <p>Please review and take necessary action.</p>
     `,
   };
@@ -62,6 +65,11 @@ const sendJobNotificationEmail = async (jobData: any, recipientEmail: string) =>
 
 
 // Login the admin
+/**
+ * Logs in the super admin by validating credentials and setting a session token.
+ * @param c - The context object containing the request and response.
+ * @returns Redirects to the super admin dashboard if successful.
+ */
 export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
   deleteCookie(c, "student_session");
   deleteCookie(c, "staff_session");
@@ -177,7 +185,11 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
 
 
 
-// Add Staff
+/**
+ * Creates new staff members by validating input and inserting into the database.
+ * @param c - The context object containing the request and response.
+ * @returns A JSON response with inserted and skipped staff details.
+ */
 export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
   try {
     const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
@@ -209,8 +221,8 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
       const validStaffs = await Promise.all(
         newStaffs.map(async (staff) => ({
           email: staff.email,
-          password: await bcrypt.hash(staff.password, 10),
-          department: staff.department || null, // Include department, default to null if not provided
+          password: await bcrypt.hash(staff.password!, 10),
+          department: staff.department || null,
         }))
       );
 
@@ -249,7 +261,11 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
   }
 };
 
-// Remove Staff
+/**
+ * Removes a staff member by ID.
+ * @param c - The context object containing the request and response.
+ * @returns A response indicating success or failure of the deletion.
+ */
 export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
   const { id } = c.req.valid("param");
 
@@ -301,7 +317,44 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
   }
 };
 
-// Create Jobs with Email Notification
+/**
+ * Handles the creation of job postings by a super admin.
+ *
+ * @param c - The context object containing the request and response.
+ * 
+ * @returns A JSON response with the created jobs or an error message.
+ *
+ * @remarks
+ * - This function requires a valid JWT token from either the "admin_session" or "oauth_session" cookie.
+ * - The token must decode to a user with the role of "super_admin".
+ * - The function validates the incoming job data and inserts it into the database.
+ * - Notifications are sent to the specified email addresses for each job.
+ *
+ * @throws
+ * - Returns a 401 status code if the session is invalid or missing.
+ * - Returns a 403 status code if the user is not authorized.
+ * - Returns a 400 status code if the super admin ID is missing from the token.
+ * - Returns a 500 status code if there is an error during job creation.
+ *
+ * @example
+ * // Example request payload:
+ * [
+ *   {
+ *     "batch": "2023",
+ *     "jobDescription": "Software Engineer",
+ *     "department": "Engineering",
+ *     "expiration": "2023-12-31",
+ *     "companyName": "TechCorp",
+ *     "driveDate": "2023-11-01",
+ *     "driveLink": "https://example.com/drive",
+ *     "notificationEmail": ["user1@example.com", "user2@example.com"]
+ *   }
+ * ]
+ *
+ * @see {@link verify} for JWT verification.
+ * @see {@link db.insert} for database insertion.
+ * @see {@link sendJobNotificationEmail} for sending email notifications.
+ */
 export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
   if (!jwtToken) return c.json({ error: "Unauthorized: No session found" }, 401);
@@ -335,7 +388,7 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
     const insertedJobs = await db.insert(drive).values(validJobs).returning();
 
     await Promise.all(
-      newJobs.map(job => 
+      newJobs.map(job =>
         Promise.all(
           job.notificationEmail.map(email => sendJobNotificationEmail(job, email))
         )
@@ -350,7 +403,52 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
 };
 
 
-// Remove Job
+/**
+ * Handles the removal of a drive by its ID.
+ *
+ * This route handler verifies the user's session using a JWT token, checks the user's role and ID,
+ * and deletes the specified drive from the database if the user is authorized.
+ *
+ * @param c - The context object containing the request and response.
+ * 
+ * @returns A JSON response indicating the success or failure of the operation.
+ *
+ * @throws Returns a 401 Unauthorized response if no session is found or the session is invalid.
+ * @throws Returns a 400 Bad Request response if the super admin ID is missing from the token.
+ * @throws Returns a 422 Unprocessable Entity response if the job ID format is invalid.
+ *
+ * @example
+ * // Expected request:
+ * // DELETE /superadmin/drive/:id
+ * // Headers: { Cookie: "admin_session=<token>" }
+ * 
+ * // Successful response:
+ * // Status: 200 OK
+ * // Body: "Job deleted successfully"
+ * 
+ * // Error response (unauthorized):
+ * // Status: 401 Unauthorized
+ * // Body: { error: "Unauthorized: No session found" }
+ * 
+ * // Error response (invalid session):
+ * // Status: 401 Unauthorized
+ * // Body: { error: "Invalid session" }
+ * 
+ * // Error response (missing super admin ID):
+ * // Status: 400 Bad Request
+ * // Body: { error: "Super admin ID missing from token" }
+ * 
+ * // Error response (invalid job ID format):
+ * // Status: 422 Unprocessable Entity
+ * // Body: {
+ * //   errors: [
+ * //     {
+ * //       path: ["param", "id"],
+ * //       message: "Invalid Job ID format"
+ * //     }
+ * //   ]
+ * // }
+ */
 export const removedrive: AppRouteHandler<RemoveDriveRoute> = async (c) => {
   try {
     const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
@@ -397,7 +495,19 @@ export const removedrive: AppRouteHandler<RemoveDriveRoute> = async (c) => {
   }
 };
 
-// Get Registered Students
+/**
+ * Handles the retrieval of registered students for the super admin.
+ *
+ * This function verifies the session token from cookies, checks the user's role,
+ * and fetches the list of registered students from the database if the user is authorized.
+ *
+ * @param c - The context object containing the request and response.
+ * @returns A JSON response containing the list of registered students or an error message.
+ *
+ * - Returns 401 if the session token is missing, invalid, or expired.
+ * - Returns 403 if the user does not have the "super_admin" role.
+ * - Returns 500 if there is an error during the database query.
+ */
 export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
 
@@ -462,7 +572,31 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
   }
 };
 
-// Bulk Add Students
+/**
+ * Handles the bulk upload of student data by the super admin.
+ *
+ * @async
+ * @function bulkUploadStudents
+ * @template BulkUploadStudentsRoute
+ * @param {AppRouteHandler<BulkUploadStudentsRoute>} c - The route context containing the request and response objects.
+ * @returns {Promise<Response>} A JSON response indicating success or failure.
+ *
+ * @description
+ * This function allows a super admin to upload multiple student records in bulk. 
+ * It performs the following steps:
+ * 1. Verifies the admin session using a JWT token.
+ * 2. Ensures the user has the "super_admin" role.
+ * 3. Validates the input student data for required fields (`staffEmail`, `email`, `password`).
+ * 4. Checks if the provided `staffEmail` values correspond to valid staff records.
+ * 5. Hashes student passwords and associates them with the corresponding staff IDs.
+ * 6. Inserts the valid student records into the database.
+ *
+ * @throws {Error} Returns appropriate HTTP status codes and error messages for:
+ * - Missing or invalid session.
+ * - Unauthorized access.
+ * - Invalid or incomplete student data.
+ * - Internal server errors.
+ */
 export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
   type StudentData = {
     staffEmail: string;
@@ -532,7 +666,20 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
   }
 };
 
-// Get Jobs with Students
+/**
+ * Handles the retrieval of job postings along with associated student applications.
+ * 
+ * This route handler performs the following steps:
+ * 1. Extracts the JWT token from the Authorization header or cookies.
+ * 2. Verifies the JWT token to authenticate the user and extract their role.
+ * 3. Ensures the user has the "super_admin" role to access this resource.
+ * 4. Queries the database to fetch job postings and their associated student applications.
+ * 5. Groups the results by job postings and formats the response.
+ * 
+ * @param c - The route context containing the request and response objects.
+ * @returns A JSON response containing the list of jobs with associated student applications
+ *          or an error message with the appropriate HTTP status code.
+ */
 export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = async (c) => {
   const authHeader = c.req.header("Authorization");
   let jwtToken = null;
@@ -634,11 +781,30 @@ export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = as
 
 
 
+/**
+ * Handles the logout process for an admin user.
+ *
+ * This function checks for active sessions by looking for cookies named
+ * `admin_session` and `oauth_session`. If neither cookie is found, it
+ * responds with an unauthorized status. If one of the cookies is found,
+ * it clears the corresponding cookie and responds with a success message.
+ *
+ * @param c - The context object containing the request and response.
+ * @returns A JSON response indicating the result of the logout operation.
+ *
+ * - If no active session is found:
+ *   - Returns a JSON response with a message "No active session" and
+ *     HTTP status code 401 (UNAUTHORIZED).
+ * - If a session is found:
+ *   - Clears the corresponding session cookie (`admin_session` or `oauth_session`).
+ *   - Returns a JSON response with a message "Logged out successfully" and
+ *     HTTP status code 200 (OK).
+ */
 export const logoutAdmin: AppRouteHandler<LogoutAdminRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session");
   const oauthToken = getCookie(c, "oauth_session");
   console.log(jwtToken);
-  console.log("Trying to logout",oauthToken);
+  console.log("Trying to logout", oauthToken);
   if (!jwtToken && !oauthToken) {
     return c.json({ message: "No active session" }, HttpStatusCodes.UNAUTHORIZED);
   }
@@ -664,6 +830,25 @@ export const logoutAdmin: AppRouteHandler<LogoutAdminRoute> = async (c) => {
 };
 
 
+/**
+ * Handles the creation of group mail entries for super admins.
+ * 
+ * This handler performs the following steps:
+ * 1. Deletes existing session cookies for students and staff.
+ * 2. Verifies the admin or OAuth session token.
+ * 3. Validates the request body to ensure it contains an array of email addresses.
+ * 4. Checks if the user has the "super_admin" role.
+ * 5. Filters and validates email addresses to ensure they belong to the "@saec.ac.in" domain.
+ * 6. Inserts the valid email addresses into the database.
+ * 
+ * @param c - The context object containing the request and response.
+ * @returns A JSON response with the number of emails inserted or an error message.
+ * 
+ * @throws 401 Unauthorized - If no session is found or the session is invalid.
+ * @throws 403 Forbidden - If the user does not have the "super_admin" role.
+ * @throws 400 Bad Request - If the request body is not an array or contains no valid emails.
+ * @throws 500 Server Error - If an unexpected error occurs during processing.
+ */
 export const FeedGroupMail: AppRouteHandler<FeedGroupMailRoute> = async (c) => {
   try {
     deleteCookie(c, "student_session");
@@ -715,9 +900,23 @@ export const FeedGroupMail: AppRouteHandler<FeedGroupMailRoute> = async (c) => {
   }
 };
 
-
-
-
+/**
+ * Handles the retrieval of group mail list for the super admin.
+ *
+ * @param c - The route handler context.
+ * @returns A JSON response containing the group mail list or an error message.
+ *
+ * - Validates the presence of a session token from cookies (`admin_session` or `oauth_session`).
+ * - Decodes and verifies the session token using the secret key.
+ * - Ensures the user has the "super_admin" role.
+ * - Fetches the group mail list from the database if the user is authorized.
+ *
+ * Possible Responses:
+ * - 200: Successfully returns the group mail list.
+ * - 401: Unauthorized due to missing, invalid, or expired session token.
+ * - 403: Unauthorized due to insufficient role.
+ * - 500: Internal server error during database query.
+ */
 export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
 
@@ -748,7 +947,7 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => 
   }
 
   try {
-    const groupMailList = await db.select({email: groupMails.email}).from(groupMails).execute();
+    const groupMailList = await db.select({ email: groupMails.email }).from(groupMails).execute();
     return c.json({
       groupMailList,
     }, 200);
@@ -760,10 +959,26 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => 
 };
 
 
+/**
+ * Handles the creation of events by validating the session, processing the request body,
+ * uploading an optional file to Supabase storage, and inserting the event data into the database.
+ *
+ * @param c - The context object containing the request and response.
+ * 
+ * @returns A JSON response with the created event data or an error message.
+ *
+ * - Validates the session token from cookies (`admin_session` or `oauth_session`).
+ * - Initializes the Supabase client if not already available in the context.
+ * - Verifies the session token and extracts the user role.
+ * - Validates and parses the request body for event data.
+ * - Handles optional file upload to Supabase storage and retrieves the public URL.
+ * - Inserts the event data into the database and returns the created event.
+ * - Handles errors and returns appropriate HTTP status codes and error messages.
+ */
 export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
   try {
     // Session validation
-    const jwtToken = getCookie(c, "admin_session")||getCookie(c,"oauth_session");
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found" }, HttpStatusCodes.UNAUTHORIZED);
     }
@@ -836,7 +1051,7 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
       event_name: eventData.event_name,
       event_link: eventData.event_link,
       date: eventData.date,
-      url: posterUrl || null, 
+      url: posterUrl || null,
     };
 
     const insertedEvent = await db

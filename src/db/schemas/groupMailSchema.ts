@@ -1,4 +1,4 @@
-import { pgTable, text, bigint, serial, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 export const groupMails = pgTable("group_mails", {

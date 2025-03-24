@@ -3,7 +3,7 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import { jsonContent, jsonContentRequired } from "stoker/openapi/helpers";
 import { createErrorSchema, IdUUIDParamsSchema } from "stoker/openapi/schemas";
 import { notFoundSchema } from "@/lib/constants";
-import { insertResumeSchema, loginStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
+import { loginStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 import { selectDriveSchema } from "@/db/schemas/driveSchema";
 import { forgotPasswordSchema } from "../staffs/staff.routes";
@@ -33,10 +33,6 @@ export const loginStudent = createRoute({
   middleware: [supabaseMiddleware] as const
 });
 
-
-
-
-
 export const getOne = createRoute({
   path: "/student",
   method: "get",
@@ -61,37 +57,6 @@ export const getOne = createRoute({
   middlewares: [supabaseMiddleware],
 });
 
-
-// //to collect student's data
-// export const createresume = createRoute({
-//     path: "/student/resume",
-//     method: "post",
-//     request: {
-//         body: jsonContentRequired(insertResumeSchema, "Add resume details for dashboard")
-//     },
-//     responses: {
-//         [HttpStatusCodes.OK]: jsonContent(
-//             selectStudentSchema,
-//             "The requested student resume details"
-//         ),
-//         [HttpStatusCodes.BAD_REQUEST]: jsonContent(
-//             createErrorSchema(insertResumeSchema),
-//             "Some details are missing"
-//         ),
-//         [HttpStatusCodes.NOT_FOUND]: jsonContent(
-//             notFoundSchema,
-//             "Student not found"
-//         ),
-//         [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-//             createErrorSchema(IdUUIDParamsSchema),
-//             "Invalid ID format"
-//         ),
-//     },
-//     middlewares: [supabaseMiddleware],
-// });
-
-
-
 export const getResume = createRoute({
   path: "/student/resume",
   method: "get",
@@ -113,10 +78,6 @@ export const getResume = createRoute({
 });
 
 
-
-
-
-
 export const displayDrives = createRoute({
   path: "/student/displaydrives",
   method: "get",
@@ -136,9 +97,6 @@ export const displayDrives = createRoute({
   },
   middlewares: [supabaseMiddleware],
 });
-
-
-
 
 const driveIdSchema = z.object({
   id: z.number()
@@ -201,44 +159,9 @@ export const updatepassword = createRoute({
 
 });
 
-
-// export const updateResume = createRoute({
-//     path: "/student/resume",
-//     method: "patch",
-//     request: {
-//       body: jsonContentRequired(
-//         z.object({}).passthrough(), // Allow any fields
-//         "Update specific resume details"
-//       ),
-//     },
-//     responses: {
-//       [HttpStatusCodes.OK]: jsonContent(
-//         selectStudentSchema,
-//         "Updated student resume details"
-//       ),
-//       [HttpStatusCodes.BAD_REQUEST]: jsonContent(
-//         createErrorSchema(z.object({})),
-//         "Invalid update details"
-//       ),
-//       [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-//         z.object({ error: z.string() }),
-//         "Unauthorized access"
-//       ),
-//       [HttpStatusCodes.NOT_FOUND]: jsonContent(
-//         notFoundSchema,
-//         "Student not found"
-//       ),
-//     },
-//     middlewares: [supabaseMiddleware],
-//   });
-
-
-//forgot password
-
-
 export const updateResume = createRoute({
   path: "/student/resume",
-  method: "patch", // Already "patch"
+  method: "patch",
   request: {
     body: jsonContentRequired(
       z.object({
@@ -354,14 +277,6 @@ export const removeApplication = createRoute({
   middlewares: [supabaseMiddleware],
 });
 
-
-
-
-
-
-
-
-
 export const checkApplicationStatus = createRoute({
   path: "/student/check-application-status/:driveId",
   method: "get",
@@ -381,13 +296,6 @@ export const checkApplicationStatus = createRoute({
   },
   middlewares: [supabaseMiddleware],
 });
-
-
-
-
-
-
-
 
 export const registerStudentSchema = z.object({
   email: z.string().email(),
@@ -437,9 +345,7 @@ export const logoutStudent = createRoute({
 });
 
 export type RegStudentRoute = typeof registration;
-
 export type CheckApplicationStatusRoute = typeof checkApplicationStatus;
-
 export type RemoveApplicationRoute = typeof removeApplication;
 export type GetResumeRoute = typeof getResume;
 export type UpdateResumeRoute = typeof updateResume;
@@ -447,7 +353,6 @@ export type LoginStudentRoute = typeof loginStudent
 export type GetOneRoute = typeof getOne;
 export type ForgotPassword = typeof forgotpassword
 export type ResetPassword = typeof resetpassword
-// export type CreateResumeRoute = typeof createresume
 export type ApplyForDriveRoute = typeof applyfordrive
 export type UpdatePasswordRoute = typeof updatepassword
 export type DisplayDrivesRoute = typeof displayDrives
