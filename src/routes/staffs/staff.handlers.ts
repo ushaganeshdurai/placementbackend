@@ -4,7 +4,7 @@ import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import bcrypt from 'bcryptjs'
 import type { BulkUploadStudentsRoute, CreateEventsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, FeedGroupMailRoute, ForgotPassword, GetFeedGroupMailRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, PlacedStudentsRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, ResetPassword, UpdatePasswordRoute } from "./staff.routes";
-import { applications, drive, events, groupMails, placedOrNot, staff, students } from "drizzle/schema";
+import { applications, drive, events, groupMails, staff, students } from "drizzle/schema";
 import { insertStudentSchema } from "@/db/schemas/studentSchema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { decode, sign, verify } from "hono/jwt";
@@ -29,8 +29,7 @@ const sendJobNotificationEmail = async (jobData: any, recipientEmail: string) =>
     to: recipientEmail,
     subject: `New Job Posting: ${jobData.companyName}`,
     html: `
-      <h2>test</h2>
-      
+      <h2>Check out about this new job listing in the placement portal</h2>
       </ul>
       <p>Please review and take necessary action.</p>
     `,
@@ -46,7 +45,18 @@ const sendJobNotificationEmail = async (jobData: any, recipientEmail: string) =>
 };
 
 
-// login the staff
+/**
+ * Handles the login process for staff members.
+ * 
+ * - Clears any existing "student_session" and "admin_session" cookies.
+ * - Validates the provided email and password against the database.
+ * - If credentials are valid, generates a session token and sets it as a cookie.
+ * - Redirects the staff member to the "/staff" page upon successful login.
+ * 
+ * @param c - The application route context containing the request and response objects.
+ * @returns A JSON response with an error message and status 401 if credentials are invalid, 
+ *          or a redirection to the "/staff" page upon successful login.
+ */
 export const loginStaff: AppRouteHandler<LoginStaffRoute> = async (c) => {
   deleteCookie(c, "student_session");
   deleteCookie(c, "admin_session");
@@ -87,18 +97,29 @@ export const loginStaff: AppRouteHandler<LoginStaffRoute> = async (c) => {
 };
 
 
-//Remove Student
+/**
+ * Handles the removal of a student from the database.
+ * 
+ * This function deletes cookies related to the student session, admin session,
+ * and OAuth session. It then attempts to delete the student record from the database
+ * based on the provided student ID.
+ * 
+ * @param c - The route handler context containing the request and response objects.
+ * 
+ * @returns A JSON response indicating the result of the operation:
+ * - `204 No Content` if the student is successfully deleted.
+ * - `404 Not Found` if the student ID does not exist in the database.
+ * - `422 Unprocessable Entity` if there is an invalid student ID format or a server error.
+ */
 export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
+  deleteCookie(c, "student_session");
+  deleteCookie(c, "admin_session");
+  deleteCookie(c, "oauth_session")
   try {
     const { id } = c.req.valid("param");
-    console.log(`Attempting to delete student with ID: ${id}`);
-
     const result = await db.delete(students)
       .where(eq(students.studentId, id))
       .execute();
-
-    console.log(`Delete result:`, result);
-
     if (result.count === 0) {
       console.log(`Student with ID ${id} not found in database`);
       return c.json({
@@ -109,7 +130,6 @@ export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
       }, HttpStatusCodes.NOT_FOUND);
     }
 
-    console.log(`Student with ID ${id} deleted successfully`);
     return c.body(null, HttpStatusCodes.NO_CONTENT);
   } catch (error) {
     console.error('Student deletion error:', error);
@@ -122,8 +142,28 @@ export const removeStudent: AppRouteHandler<RemoveStudentRoute> = async (c) => {
   }
 };
 
-// Create Jobs with Email Notification
+/**
+ * Handles the creation of job alerts by staff members.
+ *
+ * This route handler performs the following steps:
+ * 1. Deletes any existing cookies for "student_session", "admin_session", and "oauth_session".
+ * 2. Retrieves and verifies the "staff_session" JWT token to authenticate the staff member.
+ * 3. Validates the decoded token to ensure the user has the "staff" role and a valid `staff_id`.
+ * 4. Processes the incoming job data, validates it, and inserts it into the database.
+ * 5. Sends notification emails for each job to the specified recipients.
+ *
+ * @param c - The route context object containing the request and response.
+ * @returns A JSON response indicating the result of the operation:
+ * - On success: Returns the inserted job records with a 200 status code.
+ * - On failure: Returns an error message with an appropriate HTTP status code.
+ *
+ * @throws {Error} If the JWT token is invalid or missing.
+ * @throws {Error} If the job data is invalid or the database operation fails.
+ */
 export const createjobs: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
+  deleteCookie(c, "student_session");
+  deleteCookie(c, "admin_session");
+  deleteCookie(c, "oauth_session")
   const jwtToken = getCookie(c, "staff_session");
   if (!jwtToken) return c.json({ error: "Unauthorized: No session found" }, 401);
 
@@ -156,7 +196,7 @@ export const createjobs: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
     const insertedJobs = await db.insert(drive).values(validJobs).returning();
 
     await Promise.all(
-      newJobs.map(job => 
+      newJobs.map(job =>
         Promise.all(
           job.notificationEmail.map(email => sendJobNotificationEmail(job, email))
         )
@@ -170,9 +210,14 @@ export const createjobs: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
   }
 };
 
-
-
-//Remove job
+/**
+ * Handles the removal of a job by its ID.
+ *
+ * @param c - The context object containing the request and response.
+ * @returns A response indicating the success or failure of the job deletion.
+ *
+ * @throws Returns an error response if the job ID is invalid or if an error occurs during deletion.
+ */
 export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
   try {
     const { id } = c.req.valid("param");
@@ -192,10 +237,22 @@ export const removejob: AppRouteHandler<RemoveJobRoute> = async (c) => {
 };
 
 
-
-
+/**
+ * Handles the display of all drives for staff users.
+ * 
+ * This route handler verifies the staff session using a JWT token,
+ * ensures the user has the "staff" role, and fetches the list of drives
+ * from the database. It also clears any existing session cookies for
+ * other roles (admin, oauth, student).
+ * 
+ * @param c - The route context containing request and response objects.
+ * @returns A JSON response with the list of drives if successful, or an error message otherwise.
+ */
 export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
-  const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+  deleteCookie(c, "admin_session")
+  deleteCookie(c, "oauth_session")
+  deleteCookie(c, "student_session")
+  const jwtToken = getCookie(c, "staff_session");
 
   if (!jwtToken) {
     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
@@ -210,7 +267,6 @@ export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
     if (!decoded) throw new Error("Invalid session");
     staffId = decoded.staff_id;
     userRole = decoded.role;
-    console.log(jwtToken)
   } catch (error) {
     if (error === "TokenExpiredError") {
       return c.json({ error: "Session expired", success: false }, 401);
@@ -239,151 +295,27 @@ export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
 };
 
 
-//get the registered students
-
-// export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
-//   const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
-
-//   if (!jwtToken) {
-//     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
-//   }
-
-//   let staffId = null;
-//   let userRole = null;
-
-//   try {
-//     const SECRET_KEY = process.env.SECRET_KEY!;
-//     const decoded = await verify(jwtToken!, SECRET_KEY);
-//     if (!decoded) throw new Error("Invalid session");
-//     staffId = decoded.staff_id;
-//     userRole = decoded.role;
-//     console.log(jwtToken)
-//   } catch (error) {
-//     if (error === "TokenExpiredError") {
-//       return c.json({ error: "Session expired", success: false }, 401);
-//     }
-//     console.error("Session Verification Error:", error);
-//     return c.json({ error: "Invalid session", success: false }, 401);
-//   }
-
-//   if (userRole !== "staff") {
-//     return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
-//   }
-
-//   try {
-//     const registeredStudentsList = await db.select({
-//       applicationId: applications.id,
-//       studentName: students.name,
-//       email: students.email,
-//       arrears: students.noOfArrears,
-//       cgpa: students.cgpa,
-//       batch: students.batch,
-//       department: students.department,
-//       placedStatus: students.placedStatus,
-//       regNo: students.regNo,
-//       rollNo: students.rollNo,
-//       companyName: drive.companyName,
-//       appliedAt: applications.appliedAt
-//     })
-//       .from(applications)
-//       .innerJoin(students, eq(applications.studentId, students.studentId))
-//       .innerJoin(drive, eq(applications.driveId, drive.id))
-//       .execute();
-//     return c.json({
-//       success: "Fetched applications successfully",
-//       staffId,
-//       role: userRole,
-//       registered_students: registeredStudentsList,
-//     }, 200);
-
-//   } catch (error) {
-//     console.error("Database query error:", error);
-//     return c.json({ error: "Failed to fetch data", success: false }, 500);
-//   }
-// };
-
-
-
-
-
-// export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
-//   const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
-
-//   if (!jwtToken) {
-//     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
-//   }
-
-//   let userId = null;
-//   let userRole = null;
-//   let staffEmail = null;
-
-//   try {
-//     const SECRET_KEY = process.env.SECRET_KEY!;
-//     const decoded = await verify(jwtToken, SECRET_KEY);
-//     if (!decoded) throw new Error("Invalid session");
-//     userId = decoded.id;
-//     userRole = decoded.role;
-//     staffEmail = decoded.email; // Extract staffEmail from JWT payload
-//     if (!staffEmail) throw new Error("Staff email not found in session");
-//   } catch (error) {
-//     if (error === "TokenExpiredError") {
-//       return c.json({ error: "Session expired", success: false }, 401);
-//     }
-//     console.error("Session Verification Error:", error);
-//     return c.json({ error: "Invalid session", success: false }, 401);
-//   }
-
-//   if (userRole !== "staff") {
-//     return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
-//   }
-
-//   try {
-//     const { driveId } = c.req.valid("param");
-//     const registeredStudentsList = await db
-//       .select({
-//         applicationId: applications.id,
-//         studentName: students.name,
-//         email: students.email,
-//         cgpa: students.cgpa,
-//         batch: students.batch,
-//         department: students.department,
-//         appliedAt: applications.appliedAt,
-//         phoneNumber: students.phoneNumber,
-//         noOfArrears: students.noOfArrears,
-//         placedStatus: students.placedStatus,
-//       })
-//       .from(applications)
-//       .innerJoin(students, eq(applications.studentId, students.studentId))
-//       .innerJoin(drive, eq(applications.driveId, drive.id))
-//       .where(eq(applications.driveId, driveId))
-//       .execute();
-
-//     // Add staffEmail from session to each student
-//     const enrichedStudents = registeredStudentsList.map(student => ({
-//       ...student,
-//       staffEmail, // Add the current staff's email from the session
-//     }));
-
-//     console.log("Enriched Students:", enrichedStudents); // Debug log
-
-//     return c.json(
-//       {
-//         success: "Fetched applications successfully",
-//         userId,
-//         role: userRole,
-//         registered_students: enrichedStudents,
-//       },
-//       200
-//     );
-//   } catch (error) {
-//     console.error("Database query error:", error);
-//     return c.json({ error: "Failed to fetch data", success: false }, 500);
-//   }
-// };
-
-
+/**
+ * Handles the retrieval of registered students for a specific drive.
+ * 
+ * This handler verifies the staff session, checks the user's role, and fetches
+ * the list of students registered for a particular drive. It enriches the student
+ * data with the staff's email from the session before returning the response.
+ * 
+ * @param c - The context object containing the request and response.
+ * @returns A JSON response with the list of registered students or an error message.
+ * 
+ * Possible HTTP Status Codes:
+ * - 200: Successfully fetched the registered students.
+ * - 401: Unauthorized access due to missing or invalid session.
+ * - 403: Forbidden access due to insufficient role.
+ * - 500: Internal server error during database query.
+ */
 export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
-  const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+  deleteCookie(c, "admin_session")
+  deleteCookie(c, "oauth_session")
+  deleteCookie(c, "student_session")
+  const jwtToken = getCookie(c, "staff_session");
 
   if (!jwtToken) {
     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
@@ -436,7 +368,11 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
       .where(eq(applications.driveId, driveId))
       .execute();
 
-    console.log("Registered Students List:", registeredStudentsList); // Debug log
+    // Add staffEmail from session to each student
+    const enrichedStudents = registeredStudentsList.map(student => ({
+      ...student,
+      staffEmail, // Add the current staff's email from the session
+    }));
 
     return c.json(
       {
@@ -454,11 +390,28 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
   }
 };
 
-
-//students creation
+/**
+ * Handles the creation of new students by staff members.
+ *
+ * This function performs the following steps:
+ * 1. Deletes existing cookies for admin, OAuth, and student sessions.
+ * 2. Verifies the staff session token and extracts staff details.
+ * 3. Validates the staff's role and ensures the staff's department is retrieved.
+ * 4. Processes the incoming student data, filtering for valid email domains and hashing passwords.
+ * 5. Inserts the valid students into the database and returns the created student records.
+ *
+ * @param c - The route handler context containing the request and response objects.
+ * @returns A JSON response with the created student records or an error message.
+ *
+ * @throws UnauthorizedError - If the staff session token is missing or invalid.
+ * @throws BadRequestError - If the staff ID or department is missing, or no valid students are found.
+ */
 export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) => {
+  deleteCookie(c, "admin_session")
+  deleteCookie(c, "oauth_session")
+  deleteCookie(c, "student_session")
   try {
-    const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+    const jwtToken = getCookie(c, "staff_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found" }, 401);
     }
@@ -535,9 +488,24 @@ export const createStudents: AppRouteHandler<CreateStudentsRoute> = async (c) =>
   }
 };
 
-
-
+/**
+ * Handles the placement of students by updating their placement status and company information.
+ * 
+ * @param c - The route handler context containing the request and response objects.
+ * 
+ * @returns A JSON response indicating the success or failure of the operation.
+ * 
+ * - If no valid session is found, returns a 401 Unauthorized error.
+ * - If the request body is invalid, returns a 400 Bad Request error.
+ * - If the user role is not "staff", returns a 403 Forbidden error.
+ * - If successful, updates the placement status of students and returns the updated records along with any errors.
+ * 
+ * @throws Returns a 500 Internal Server Error if an unexpected error occurs during processing.
+ */
 export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) => {
+  deleteCookie(c, "admin_session")
+  deleteCookie(c, "oauth_session")
+  deleteCookie(c, "student_session")
   try {
     const jwtToken = getCookie(c, "staff_session");
     if (!jwtToken) {
@@ -550,7 +518,6 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
     const SECRET_KEY = process.env.SECRET_KEY!;
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
-      console.log("Decoded JWT:", decoded);
       if (!decoded) throw new Error("Invalid session");
 
       userRole = decoded.role as string;
@@ -573,8 +540,6 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
     }
 
     if (userRole === "staff") {
-      console.log("Updating placed status for students:", emails);
-
       const updatedStudents = [];
       const errors = [];
 
@@ -599,7 +564,6 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
             .returning();
 
           updatedStudents.push(updatedStudent[0]);
-          console.log(`Updated student ${email}:`, updatedStudent);
         } catch (error) {
           console.error(`Error updating student ${email}:`, error);
           errors.push({ email, error: error.message });
@@ -625,10 +589,27 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
 };
 
 
+/**
+ * Handles the bulk upload of students by staff members.
+ * 
+ * This function performs the following steps:
+ * 1. Validates the staff session using a JWT token.
+ * 2. Ensures the user has the "staff" role.
+ * 3. Parses and validates the request body containing student data.
+ * 4. Associates students with the appropriate staff and department.
+ * 5. Hashes student passwords before storing them in the database.
+ * 6. Checks for duplicate student emails and skips them if they already exist.
+ * 7. Inserts new student records into the database.
+ * 
+ * @param c - The context object containing the request and response.
+ * @returns A JSON response indicating success or failure, along with details of inserted and skipped students.
+ */
 export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
-  const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+  deleteCookie(c, "admin_session")
+  deleteCookie(c, "oauth_session")
+  deleteCookie(c, "student_session")
+  const jwtToken = getCookie(c, "staff_session");
   if (!jwtToken) {
-    console.log("3. No session found");
     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
   }
 
@@ -643,14 +624,12 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
     if (!decoded) throw new Error("Invalid session");
     staffId = decoded.staff_id;
     userRole = decoded.role;
-    console.log("4. Session decoded:", { staffId, userRole });
   } catch (error) {
     console.error("5. Session Verification Error:", error);
     return c.json({ error: "Invalid session", success: false }, 401);
   }
 
   if (userRole !== "staff") {
-    console.log("6. Insufficient role");
     return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
   }
 
@@ -662,16 +641,11 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
   defaultStaffDepartment = staffDetails[0]?.department;
   defaultStaffEmail = staffDetails[0]?.email;
   if (!defaultStaffDepartment || !defaultStaffEmail) {
-    console.log("7. Default staff details not found");
     return c.json({ error: "Staff department or email not found", success: false }, 400);
   }
-  console.log("8. Default staff details:", { staffId, defaultStaffEmail, defaultStaffDepartment });
-
   let body;
   try {
-    console.log("9. Attempting to parse body");
     body = await c.req.json();
-    console.log("10. Received Body:", body);
   } catch (error) {
     console.error("11. Error parsing request body:", error);
     return c.json(
@@ -681,7 +655,6 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
   }
 
   if (!body || !Array.isArray(body)) {
-    console.log("12. Body validation failed:", body);
     return c.json(
       { error: "Invalid request body: Expected an array", success: false },
       400
@@ -696,9 +669,7 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
 
   let validatedData;
   try {
-    console.log("13. Validating body against extended schema");
     validatedData = z.array(extendedSchema).parse(body);
-    console.log("14. Schema validation passed:", validatedData);
   } catch (validationError) {
     console.error("15. Validation Error Raw:", validationError);
     const issues = validationError instanceof z.ZodError ? validationError.issues : [];
@@ -716,15 +687,14 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
     );
   }
 
-  // Map students with staffId and department
-  console.log("17. Mapping student data");
+
   const studentDataPromises = validatedData.map(async (student) => {
     let targetStaffId = staffId;
     let targetStaffEmail = defaultStaffEmail;
     let targetDepartment = student.department || defaultStaffDepartment; // Use provided department or fallback
 
     // Hash the password before storing
-    const hashedPassword = await bcrypt.hash(student.password, 10);
+    const hashedPassword = await bcrypt.hash(student.password!, 10);
 
     if (student.staffEmail) {
       const staffRecord = await db
@@ -750,8 +720,6 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
   });
 
   const studentData = await Promise.all(studentDataPromises);
-  console.log("19. Mapped Student Data:", studentData);
-
   try {
     const existingStudents = await db
       .select({ email: students.email })
@@ -759,10 +727,8 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
       .where(inArray(students.email, studentData.map((s) => s.email)))
       .execute();
     const existingEmails = new Set(existingStudents.map((s) => s.email));
-    console.log("20. Existing Emails:", existingEmails);
 
     const newStudents = studentData.filter((student) => !existingEmails.has(student.email));
-    console.log("21. New Students to Insert:", newStudents);
 
     if (newStudents.length === 0) {
       console.log("22. No new students to insert");
@@ -784,8 +750,6 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
         department: students.department,
         batch: students.batch,
       });
-    console.log("23. Inserted Students:", insertedStudents);
-
     const responseInserted = insertedStudents.map((student) => {
       const matchingStudent = newStudents.find((s) => s.email === student.email);
       return { ...student, staffEmail: matchingStudent?.staffEmail };
@@ -794,7 +758,6 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
       .filter((student) => existingEmails.has(student.email))
       .map((student) => ({ ...student }));
 
-    console.log("24. Response Prepared:", { inserted: responseInserted, skipped: responseSkipped });
     return c.json({
       success: true,
       message: `Inserted ${insertedStudents.length} students, skipped ${responseSkipped.length} duplicates`,
@@ -802,7 +765,6 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
       skipped: responseSkipped,
     }, 200);
   } catch (error) {
-    console.error("25. Bulk upload error:", error);
     if (error.code === "23505") {
       return c.json(
         {
@@ -818,10 +780,23 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
 };
 
 
+/**
+ * Handles the password update process for staff members.
+ * 
+ * This function performs the following steps:
+ * 1. Deletes existing session cookies.
+ * 2. Verifies the staff session token.
+ * 3. Validates the provided old password.
+ * 4. Updates the password with a new hashed password.
+ * 
+ * @param c - The route handler context containing the request and response.
+ * @returns A JSON response indicating success or failure of the operation.
+ */
 export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {
   try {
-    deleteCookie(c, "student_session");
-    deleteCookie(c, "admin_session");
+    deleteCookie(c, "student_session")
+    deleteCookie(c, "admin_session")
+    deleteCookie(c, "oauth_session")
     const jwtToken = getCookie(c, "staff_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found", success: false }, 401);
@@ -876,9 +851,23 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
   }
 };
 
-
-
+/**
+ * Handles the retrieval of a single staff member's details and associated data.
+ * 
+ * - Verifies the staff session using a JWT token.
+ * - Ensures the user has the "staff" role.
+ * - Fetches staff details from the database.
+ * - Retrieves all students in the staff's department, grouped by department and batch.
+ * - Filters and groups students added by the staff, grouped by batch.
+ * - Fetches the list of job drives.
+ * 
+ * @param c - The route handler context.
+ * @returns A JSON response containing staff details, students, and job drives, or an error message.
+ */
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
+  deleteCookie(c, "student_session")
+  deleteCookie(c, "admin_session")
+  deleteCookie(c, "oauth_session")
   const jwtToken = getCookie(c, "staff_session");
 
   if (!jwtToken) {
@@ -894,8 +883,6 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     if (!decoded) throw new Error("Invalid session");
     staffId = (decoded.staff_id || decoded.id) as string;
     userRole = decoded.role;
-    console.log("JWT Token:", jwtToken);
-    console.log("Decoded JWT:", decoded);
   } catch (error) {
     console.error("Session Verification Error:", error);
     return c.json({ error: `Invalid session: ${error.message}` }, 401);
@@ -916,9 +903,6 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       .from(staff)
       .where(eq(staff.staffId, staffId))
       .execute();
-
-    console.log("Staff Query Result:", staff_details);
-
     if (staff_details.length === 0) {
       return c.json({ error: `Staff not found for staffId: ${staffId}` }, 404);
     }
@@ -994,14 +978,30 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   }
 };
 
-
-
+/**
+ * Handles the creation of group mail entries for staff members.
+ * 
+ * @param c - The route handler context.
+ * @returns A JSON response indicating the result of the operation.
+ * 
+ * - Deletes existing session cookies for students, admins, and OAuth.
+ * - Verifies the staff session using a JWT token.
+ * - Validates the request body to ensure it contains an array of email addresses.
+ * - Filters and cleans the email list to include only valid `@saec.ac.in` domain emails.
+ * - Inserts the valid emails into the database.
+ * 
+ * @throws 401 - If no session is found or the session is invalid.
+ * @throws 403 - If the user is not authorized (not a staff member).
+ * @throws 400 - If the request format is invalid or no valid emails are provided.
+ * @throws 500 - If a server error occurs during processing.
+ */
 export const FeedGroupMail: AppRouteHandler<FeedGroupMailRoute> = async (c) => {
   try {
     deleteCookie(c, "student_session");
     deleteCookie(c, "admin_session");
+    deleteCookie(c, "oauth_session");
 
-    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+    const jwtToken = getCookie(c, "staff_session");
     if (!jwtToken) return c.json({ error: "Unauthorized: No session found" }, 401);
 
     let userRole: string | null = null;
@@ -1047,9 +1047,22 @@ export const FeedGroupMail: AppRouteHandler<FeedGroupMailRoute> = async (c) => {
   }
 };
 
-
-
+/**
+ * Handles the retrieval of group mail list for staff users.
+ *
+ * This handler performs the following steps:
+ * 1. Deletes any existing cookies for student, admin, and OAuth sessions.
+ * 2. Retrieves and verifies the staff session JWT token.
+ * 3. Ensures the user has the "staff" role.
+ * 4. Fetches the list of group emails from the database.
+ *
+ * @param c - The route context containing request and response objects.
+ * @returns A JSON response containing the group mail list or an error message.
+ */
 export const getFeedGroupMail: AppRouteHandler<GetFeedGroupMailRoute> = async (c) => {
+  deleteCookie(c, "student_session");
+  deleteCookie(c, "admin_session");
+  deleteCookie(c, "oauth_session");
   const jwtToken = getCookie(c, "staff_session");
 
   if (!jwtToken) {
@@ -1090,9 +1103,12 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedGroupMailRoute> = async (c
   }
 };
 
-
-
-
+/**
+ * Logs out a staff member by deleting their session cookie.
+ *
+ * @param c - The route handler context.
+ * @returns A JSON response indicating the result of the logout operation.
+ */
 export const logoutStaff: AppRouteHandler<LogoutStaffRoute> = async (c) => {
   const jwtoken = getCookie(c, "staff_session")
   if (!jwtoken) {
@@ -1105,6 +1121,12 @@ export const logoutStaff: AppRouteHandler<LogoutStaffRoute> = async (c) => {
 
 
 
+/**
+ * Handles the forgot password functionality for staff users.
+ *
+ * @param c - The route handler context containing the request and response objects.
+ * @returns A JSON response indicating the success or failure of the password reset email operation.
+ */
 export const forgotPassword: AppRouteHandler<ForgotPassword> = async (c) => {
   try {
     const { email } = c.req.valid("json");
@@ -1126,60 +1148,71 @@ export const forgotPassword: AppRouteHandler<ForgotPassword> = async (c) => {
   }
 };
 
-
-
-
+/**
+ * Handles the password reset functionality for staff users.
+ *
+ * @param c - The route handler context containing the request and response objects.
+ * @returns A JSON response indicating the success or failure of the password reset operation.
+ *
+ * - Validates the presence of `token` and `newPassword` in the request body.
+ * - Decodes the token to extract the user's email.
+ * - Hashes the new password and updates the user's password in the database.
+ * - Returns appropriate HTTP status codes and messages based on the operation's outcome.
+ */
 export const resetPassword: AppRouteHandler<ResetPassword> = async (c) => {
   try {
     const { token, newPassword } = c.req.valid("json");
-
-    console.log('Received payload:', { token, newPassword });
-
     if (!token || !newPassword) {
       console.error('Missing token or password');
       return c.json({ error: 'Missing token or password' }, 400);
     }
-
     const decodedToken = decode(token);
-
-    console.log('Decoded Token:', decodedToken);
-
     if (!decodedToken || !decodedToken.payload.email) {
       console.error('Invalid token or missing email');
       return c.json({ error: 'Invalid token or expired link' }, 401);
     }
-
     const userEmail = decodedToken.payload.email;
-    console.log(`Resetting password for: ${userEmail}`);
-
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     const updatedRows = await db
       .update(staff)
       .set({ password: hashedPassword })
       .where(eq(staff.email, userEmail))
       .returning();
-
-    console.log('Password reset successfully');
     return c.json({ message: 'Password reset successfully' }, 200);
-
   } catch (error) {
     console.error('Internal server error:', error);
     return c.json({ error: 'Something went wrong' }, 500);
   }
 };
 
+/**
+ * Handles the creation of events by staff members.
+ * 
+ * This function performs the following steps:
+ * 1. Deletes any existing session cookies for students, admins, and OAuth.
+ * 2. Validates the staff session using a JWT token.
+ * 3. Initializes the Supabase client if not already available.
+ * 4. Verifies the session token and extracts the staff ID.
+ * 5. Validates and parses the incoming event data from the request body.
+ * 6. Handles optional file uploads for event posters and retrieves the public URL.
+ * 7. Inserts the new event into the database.
+ * 
+ * @param c - The context object containing the request and response.
+ * @returns A JSON response with the created event or an error message.
+ */
 export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
+  deleteCookie(c, "student_session");
+  deleteCookie(c, "admin_session");
+  deleteCookie(c, "oauth_session");
   try {
     // Session validation
     const jwtToken = getCookie(c, "staff_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found" }, HttpStatusCodes.UNAUTHORIZED);
     }
-
     // Initialize Supabase
     let supabase = c.get("supabase");
     if (!supabase) {
-      console.warn("Supabase client not found in context. Initializing manually.");
       const supabaseUrl = process.env.SUPABASE_URL;
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (!supabaseUrl || !supabaseKey) {
@@ -1187,7 +1220,6 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
       }
       supabase = createClient(supabaseUrl, supabaseKey);
     }
-
     // Verify session token
     const SECRET_KEY = process.env.SECRET_KEY!;
     let staffId: string;
@@ -1202,21 +1234,17 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
       console.error("Session Verification Error:", error);
       return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
     }
-
     // Validate and parse the request body
     const eventData = c.req.valid("json");
     if (!eventData || typeof eventData !== "object") {
       return c.json({ error: "Invalid event data" }, HttpStatusCodes.BAD_REQUEST);
     }
-
     let posterUrl = eventData.url; // Use existing URL if provided
-
     // Handle file upload
     if (eventData.file) {
       if (typeof eventData.file !== "string") {
         return c.json({ error: "Invalid file: Must be a base64-encoded string" }, HttpStatusCodes.BAD_REQUEST);
       }
-
       const fileBuffer = Buffer.from(eventData.file, "base64");
       const fileName = eventData.fileName
         ? `events/${Date.now()}_${eventData.fileName}`
@@ -1234,12 +1262,10 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
         console.error("Supabase Upload Error:", error);
         return c.json({ error: `File upload failed: ${error.message}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
       }
-
       // Get public URL
       posterUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
       console.log("Uploaded file URL:", posterUrl);
     }
-
     // Create event in the database
     const newEvent = {
       event_name: eventData.event_name,
@@ -1247,7 +1273,6 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
       date: eventData.date,
       url: posterUrl || null,
     };
-
     const insertedEvent = await db
       .insert(events)
       .values(newEvent)
@@ -1256,7 +1281,6 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
     if (insertedEvent.length === 0) {
       return c.json({ error: "Failed to create event" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
     }
-
     return c.json(insertedEvent[0], HttpStatusCodes.OK);
   } catch (error) {
     console.error("Event creation error:", error);

@@ -3,7 +3,6 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import { jsonContent } from "stoker/openapi/helpers";
 import { eq } from "drizzle-orm";
 import { createMessageObjectSchema } from "stoker/openapi/schemas";
-
 import { createRouter } from "@/lib/create-app";
 import { events, students } from "drizzle/schema";
 import db from "@/db";

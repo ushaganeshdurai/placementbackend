@@ -58,26 +58,6 @@ export const insertStudentSchema = createInsertSchema(students).required({
   companyPlacedIn: true,
   regNo: true,
   rollNo: true,
-  // Removed batch from omit to allow it
-});
-
-export const insertResumeSchema = createInsertSchema(students).required({
-  skillSet: true,
-  languagesKnown: true,
-  phoneNumber: true,
-  noOfArrears: true,
-  department: true,
-  url:true,
-  batch: true,
-  githubUrl: true,
-  linkedinUrl: true,
-  twelfthMark: true,
-  tenthMark: true,
-  cgpa: true,
-}).omit({
-  regNo: true, name: true,
-  rollNo: true,
-  email: true, password: true, staffId: true, studentId: true, userId: true, 
 });
 
 export const loginStudentSchema = z.object({
