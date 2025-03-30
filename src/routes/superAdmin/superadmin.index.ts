@@ -17,4 +17,5 @@ const router = createRouter()
   .openapi(routes.feedGroupMail,handlers.FeedGroupMail)
   .openapi(routes.createeventsroute,handlers.createevents)
   .openapi(routes.getFeedGroupMail,handlers.getFeedGroupMail)
+  .openapi(routes.placedstudentsRoute,handlers.placedstudents)
 export default router;

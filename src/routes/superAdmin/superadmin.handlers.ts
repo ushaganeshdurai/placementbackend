@@ -87,6 +87,7 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
 
   const SECRET_KEY = process.env.SECRET_KEY!;
   const sessionToken = await sign({ id: admin.id, email: admin.email, role: "super_admin" }, SECRET_KEY);
+console.log(sessionToken)
 
   setCookie(c, "admin_session", sessionToken, {
     httpOnly: true,
@@ -852,5 +853,94 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
   } catch (error) {
     console.error("Event creation error:", error);
     return c.json({ error: "Something went wrong" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  }
+};
+
+
+
+export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "admin_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+    }
+console.log(jwtToken)
+    let userRole: string | null = null;
+    let userId: string | null = null;
+
+    const SECRET_KEY = process.env.SECRET_KEY!;
+    try {
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      console.log("Decoded JWT:", decoded);
+      if (!decoded) throw new Error("Invalid session");
+
+      userRole = decoded.role as string;
+      userId = decoded.id as string;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session", success: false }, 401);
+    }
+
+    if (!userId) {
+      return c.json({ error: "Admin ID missing from token", success: false }, 400);
+    }
+
+    const { emails, companyName } = c.req.valid("json");
+    if (!Array.isArray(emails) || emails.length === 0) {
+      return c.json({ error: "Invalid request body: Expected a non-empty array of emails", success: false }, 400);
+    }
+    if (!companyName) {
+      return c.json({ error: "Invalid request body: Company name is required", success: false }, 400);
+    }
+
+    if (userRole === "super_admin") {
+      console.log("Updating placed status for students:", emails);
+
+      const updatedStudents = [];
+      const errors = [];
+
+      for (const email of emails) {
+        try {
+          const existingStudent = await db
+            .select()
+            .from(students)
+            .where(eq(students.email, email))
+            .limit(1)
+            .execute();
+
+          if (existingStudent.length === 0) {
+            errors.push({ email, error: "Student not found" });
+            continue;
+          }
+
+          const updatedStudent = await db
+            .update(students)
+            .set({ placedStatus: "yes", companyPlacedIn: companyName })
+            .where(eq(students.email, email))
+            .returning();
+
+          updatedStudents.push(updatedStudent[0]);
+          console.log(`Updated student ${email}:`, updatedStudent);
+        } catch (error) {
+          console.error(`Error updating student ${email}:`, error);
+          errors.push({ email, error: error.message });
+        }
+      }
+
+      return c.json(
+        {
+          success: true,
+          message: "Placed students updated successfully",
+          updated: updatedStudents,
+          errors,
+        },
+        200
+      );
+    }
+
+    return c.json({ error: "Unauthorized", success: false }, 403);
+  } catch (error) {
+    console.error("Students update error:", error);
+    return c.json({ error: "An error occurred", success: false }, 500);
   }
 };

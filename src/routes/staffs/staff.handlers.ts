@@ -306,6 +306,82 @@ export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
 
 
 
+// export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
+//   const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
+
+//   if (!jwtToken) {
+//     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
+//   }
+
+//   let userId = null;
+//   let userRole = null;
+//   let staffEmail = null;
+
+//   try {
+//     const SECRET_KEY = process.env.SECRET_KEY!;
+//     const decoded = await verify(jwtToken, SECRET_KEY);
+//     if (!decoded) throw new Error("Invalid session");
+//     userId = decoded.id;
+//     userRole = decoded.role;
+//     staffEmail = decoded.email; // Extract staffEmail from JWT payload
+//     if (!staffEmail) throw new Error("Staff email not found in session");
+//   } catch (error) {
+//     if (error === "TokenExpiredError") {
+//       return c.json({ error: "Session expired", success: false }, 401);
+//     }
+//     console.error("Session Verification Error:", error);
+//     return c.json({ error: "Invalid session", success: false }, 401);
+//   }
+
+//   if (userRole !== "staff") {
+//     return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
+//   }
+
+//   try {
+//     const { driveId } = c.req.valid("param");
+//     const registeredStudentsList = await db
+//       .select({
+//         applicationId: applications.id,
+//         studentName: students.name,
+//         email: students.email,
+//         cgpa: students.cgpa,
+//         batch: students.batch,
+//         department: students.department,
+//         appliedAt: applications.appliedAt,
+//         phoneNumber: students.phoneNumber,
+//         noOfArrears: students.noOfArrears,
+//         placedStatus: students.placedStatus,
+//       })
+//       .from(applications)
+//       .innerJoin(students, eq(applications.studentId, students.studentId))
+//       .innerJoin(drive, eq(applications.driveId, drive.id))
+//       .where(eq(applications.driveId, driveId))
+//       .execute();
+
+//     // Add staffEmail from session to each student
+//     const enrichedStudents = registeredStudentsList.map(student => ({
+//       ...student,
+//       staffEmail, // Add the current staff's email from the session
+//     }));
+
+//     console.log("Enriched Students:", enrichedStudents); // Debug log
+
+//     return c.json(
+//       {
+//         success: "Fetched applications successfully",
+//         userId,
+//         role: userRole,
+//         registered_students: enrichedStudents,
+//       },
+//       200
+//     );
+//   } catch (error) {
+//     console.error("Database query error:", error);
+//     return c.json({ error: "Failed to fetch data", success: false }, 500);
+//   }
+// };
+
+
 export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
   const jwtToken = getCookie(c, "staff_session") || getCookie(c, "oauth_session");
 
@@ -315,7 +391,7 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
 
   let userId = null;
   let userRole = null;
-  let staffEmail = null;
+  let currentStaffEmail = null; // Rename for clarity
 
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
@@ -323,8 +399,8 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
     if (!decoded) throw new Error("Invalid session");
     userId = decoded.id;
     userRole = decoded.role;
-    staffEmail = decoded.email; // Extract staffEmail from JWT payload
-    if (!staffEmail) throw new Error("Staff email not found in session");
+    currentStaffEmail = decoded.email; // Email of the logged-in staff
+    if (!currentStaffEmail) throw new Error("Staff email not found in session");
   } catch (error) {
     if (error === "TokenExpiredError") {
       return c.json({ error: "Session expired", success: false }, 401);
@@ -350,27 +426,25 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
         appliedAt: applications.appliedAt,
         phoneNumber: students.phoneNumber,
         noOfArrears: students.noOfArrears,
+        placedStatus: students.placedStatus,
+        staffEmail: staff.email, // Fetch the staff email associated with the student
       })
       .from(applications)
       .innerJoin(students, eq(applications.studentId, students.studentId))
       .innerJoin(drive, eq(applications.driveId, drive.id))
+      .leftJoin(staff, eq(students.staffId, staff.staffId)) // Join with staff table
       .where(eq(applications.driveId, driveId))
       .execute();
 
-    // Add staffEmail from session to each student
-    const enrichedStudents = registeredStudentsList.map(student => ({
-      ...student,
-      staffEmail, // Add the current staff's email from the session
-    }));
-
-    console.log("Enriched Students:", enrichedStudents); // Debug log
+    console.log("Registered Students List:", registeredStudentsList); // Debug log
 
     return c.json(
       {
         success: "Fetched applications successfully",
         userId,
         role: userRole,
-        registered_students: enrichedStudents,
+        registered_students: registeredStudentsList,
+        currentStaffEmail, // Optionally return the logged-in staff's email
       },
       200
     );
@@ -379,9 +453,6 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
     return c.json({ error: "Failed to fetch data", success: false }, 500);
   }
 };
-
-
-
 
 
 //students creation
@@ -749,9 +820,9 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
 
 export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) => {
   try {
-    deleteCookie(c, "student_session")
-    deleteCookie(c, "admin_session")
-    const jwtToken = getCookie(c, "staff_session") ;
+    deleteCookie(c, "student_session");
+    deleteCookie(c, "admin_session");
+    const jwtToken = getCookie(c, "staff_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found", success: false }, 401);
     }
@@ -761,7 +832,6 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
       if (!decoded) throw new Error("Invalid session");
-
       staffId = decoded.staff_id as string;
     } catch (error) {
       console.error("Session Verification Error:", error);
@@ -782,12 +852,12 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
       .execute();
 
     const staffy = staffQuery[0];
-
     if (!staffy) {
       return c.json({ error: "Staff not found", success: false }, 404);
     }
 
-    const passwordMatches = await bcrypt.compare(staffy.password!, oldPassword);
+    // Fixed: Compare plaintext oldPassword with stored hash
+    const passwordMatches = await bcrypt.compare(oldPassword, staffy.password!);
     if (!passwordMatches) {
       return c.json({ error: "Incorrect old password", success: false }, 401);
     }
@@ -870,6 +940,18 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
         staffId: students.staffId,
         regNo: students.regNo,
         placedStatus: students.placedStatus,
+        name: students.name,
+        phoneNumber: students.phoneNumber,
+        cgpa: students.cgpa,
+        tenthMark: students.tenthMark,
+        twelfthMark: students.twelfthMark,
+        arrears: students.noOfArrears,
+        companyPlacedIn: students.companyPlacedIn,
+        rollNo: students.rollNo,
+        SkillSet: students.skillSet,
+        languageKnown: students.languagesKnown,
+        linkdinUrl: students.linkedinUrl,
+        githubUrl: students.githubUrl,
       })
       .from(students)
       .leftJoin(staff, eq(students.staffId, staff.staffId))

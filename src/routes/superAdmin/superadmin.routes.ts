@@ -423,6 +423,33 @@ export const createeventsroute = createRoute({
 });
 
 
+const placedStudentsSchema = z.object({
+  emails: z.array(z.string().email()).nonempty(),
+  companyName: z.string().nonempty(),
+});
+
+export const placedstudentsRoute = createRoute({
+  path: "/superadmin/updateplacedstudentslist",
+  method: "post",
+  request: {
+    body: jsonContentRequired(placedStudentsSchema, "Updated status"),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: {
+      description: "Updated placed students list",
+    },
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createErrorSchema(loginSuperAdminSchema),
+      "Unauthorized access - Token required"
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(placedStudentsSchema),
+      "The validation error(s)"
+    ),
+  },
+});
+
+
 
 
 export type GetFeedMailRoute = typeof getFeedGroupMail;
