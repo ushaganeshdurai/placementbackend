@@ -160,6 +160,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
         name: students.name,
         batch: students.batch,
         department: students.department,
+        placedStatus:students.placedStatus
       })
       .from(students)
       .execute();
