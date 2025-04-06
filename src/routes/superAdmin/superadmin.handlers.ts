@@ -391,6 +391,8 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
       batch: job.batch!,
       jobDescription: job.jobDescription!,
       department: job.department,
+      role:job.role,
+      lpa:job.lpa,
       expiration: job.expiration!,
       companyName: job.companyName!,
       driveDate: job.driveDate!,
@@ -942,19 +944,20 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => 
     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
   }
 
-  
+  let userId: string | undefined;
+  let userRole: string | undefined;
 
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken!, SECRET_KEY);
-    let userId = null;
-  let userRole = null;
+
     if (!decoded) throw new Error("Invalid session");
     // @ts-ignore
     userId = decoded.id;
     // @ts-ignore
     userRole = decoded.role;
-    console.log(jwtToken)
+
+    console.log(jwtToken);
   } catch (error) {
     if (error === "TokenExpiredError") {
       return c.json({ error: "Session expired", success: false }, 401);
@@ -962,7 +965,7 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => 
     console.error("Session Verification Error:", error);
     return c.json({ error: "Invalid session", success: false }, 401);
   }
-// @ts-ignore
+
   if (userRole !== "super_admin") {
     return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
   }
@@ -972,7 +975,6 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => 
     return c.json({
       groupMailList,
     }, 200);
-
   } catch (error) {
     console.error("Database query error:", error);
     return c.json({ error: "Failed to fetch data", success: false }, 500);
@@ -1018,13 +1020,14 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
 
     // Verify session token
     const SECRET_KEY = process.env.SECRET_KEY!;
-    let userRole: string;
+  
 
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
       if (!decoded || !decoded.role) {
         return c.json({ error: "Invalid session: Staff ID missing" }, HttpStatusCodes.UNAUTHORIZED);
       }
+      let userRole: string;
       userRole = decoded.role as string;
     } catch (error) {
       console.error("Session Verification Error:", error);
@@ -1096,7 +1099,6 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found", success: false }, 401);
     }
-console.log(jwtToken)
     let userRole: string | null = null;
     let userId: string | null = null;
 

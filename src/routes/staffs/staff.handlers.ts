@@ -190,6 +190,7 @@ export const createjobs: AppRouteHandler<CreateJobAlertRoute> = async (c) => {
       expiration: job.expiration!,
       companyName: job.companyName!,
       role:job.role!,
+      lpa:job.lpa!,
       driveDate: job.driveDate!,
       driveLink: job.driveLink!,
     }));
