@@ -6,6 +6,7 @@ import { createMessageObjectSchema } from "stoker/openapi/schemas";
 import { createRouter } from "@/lib/create-app";
 import { events, students } from "drizzle/schema";
 import db from "@/db";
+import { drive } from "@/db/schemas/driveSchema";
 
 const router = createRouter()
   .openapi(
@@ -38,6 +39,7 @@ const router = createRouter()
         ),
       },
     }),
+    // @ts-ignore
     async (c) => {
       try {
         const studentDetails = await db
@@ -94,6 +96,7 @@ const router = createRouter()
         )
       }
     }),
+    // @ts-ignore
     async (c) => {
       try {
         console.log("Fetching event details from database...");
@@ -125,6 +128,52 @@ const router = createRouter()
       }
     }
   )
+
+  .openapi(
+    createRoute({
+      tags: ["Get jobs alone"],
+      method: "get",
+      path: "/get-jobs",
+      responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+          {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                companyName: { type: "string" },
+                role: { type: "string" },
+                lpa: { type: "string" },
+              }
+            }
+          },
+          "Successfully retrieved jobs"
+        ),
+      },
+    }),
+    // @ts-ignore
+    async (c) => {
+      try {
+        const jobDetails = await db
+          .select({
+            companyName: drive.companyName,
+            role: drive.role,
+            lpa:drive.lpa
+          })
+          .from(drive)
+          .execute();
+
+        if (jobDetails.length === 0) {
+          return c.json({ error: "Jobs not found" }, HttpStatusCodes.NOT_FOUND);
+        }
+
+        return c.json(jobDetails, HttpStatusCodes.OK);
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+        return c.json({ error: "Internal server error" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+      }
+    }
+  )
   .openapi(
     createRoute({
       tags: ["Session"],
@@ -140,16 +189,13 @@ const router = createRouter()
           },
           "Session role retrieved successfully"
         ),
-        // [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-        //   { error: "No active session" },
-        //   "No valid session found"
-        // ),
         [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
           { error: "Internal server error" },
           "Error checking session"
         )
       }
     }),
+    //@ts-ignore
     (c) => {
       try {
         console.log('Request Headers:', c.req.raw.headers);

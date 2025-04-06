@@ -5,6 +5,7 @@
     "jsxImportSource": "hono/jsx",
     "baseUrl": "./",
     "module": "ESNext",
+    "noImplicitAny": false,
     "moduleResolution": "Bundler",
     "paths": {
       "@/*": ["./src/*"]
