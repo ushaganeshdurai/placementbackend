@@ -8,9 +8,8 @@ import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSc
 import { supabaseMiddleware } from "@/middlewares/auth/authMiddleware";
 import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
 import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { groupMails, students } from "drizzle/schema";
-import { insertEventSchema } from "@/db/schemas/eventSchema";
+import { createSelectSchema } from "drizzle-zod";
+import { groupMails } from "drizzle/schema";
 
 // Log in the staff
 export const loginStaff = createRoute({
@@ -20,14 +19,7 @@ export const loginStaff = createRoute({
     body: jsonContentRequired(loginStaffSchema, "The staff login credentials"),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.object({
-        success: z.boolean(),
-        staffId: z.string(),
-        role: z.literal("staff"),
-      }),
-      "Staff login successful"
-    ),
+    [HttpStatusCodes.OK]: {description:"Staff login successful"},
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       z.object({ error: z.string() }),
       "Unauthorized access"
@@ -78,10 +70,10 @@ export const createstudentsroute = createRoute({
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.array(selectStudentSchema),
+    [HttpStatusCodes.OK]:{
+      description:
       "Created many students",
-    ),
+  },
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createErrorSchema(insertStudentSchema),
       "The validation error(s)",
@@ -100,10 +92,10 @@ export const createjobalertroute = createRoute({
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.array(selectDriveSchema),
-      "Created many drives",
-    ),
+    [HttpStatusCodes.OK]: {
+      description:
+        "Created many drives"
+    },
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createErrorSchema(insertDriveSchema),
       "The validation error(s)",
@@ -212,10 +204,7 @@ export const bulkuploadstudents = createRoute({
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.array(selectStudentSchema),
-      "Created many students"
-    ),
+    [HttpStatusCodes.OK]:{description: "Students uploaded successfully"},
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createErrorSchema(insertStudentSchema),
       "The validation error(s)"
@@ -404,25 +393,15 @@ export const createeventsroute = createRoute({
         date: z.string().refine((val) => !isNaN(Date.parse(val)), {
           message: "Invalid date format",
         }),
-        file: z.string().optional(),      
+        file: z.string().optional(),
         fileName: z.string().optional(),
-        fileType: z.string().optional(),  
+        fileType: z.string().optional(),
       }).passthrough(),
       "Event details including optional file upload"
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.object({
-        id: z.number(),
-        event_name: z.string(),
-        event_link: z.string(),
-        date: z.string(),
-        url: z.string().nullable(),
-        staff_id: z.string(),
-      }),
-      "Successfully created event"
-    ),
+    [HttpStatusCodes.OK]: {description: "Event created successfully"},
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       z.object({ error: z.string() }),
       "Invalid event data"
@@ -488,5 +467,5 @@ export type DisplayDrivesRoute = typeof displayDrives;
 export type UpdatePasswordRoute = typeof updatepassword
 export type BulkUploadStudentsRoute = typeof bulkuploadstudents;
 export type GetFeedGroupMailRoute = typeof getFeedGroupMail;
-export type RegisteredStudentsRoute = typeof registeredStudents; 
+export type RegisteredStudentsRoute = typeof registeredStudents;
 export type CreateEventsRoute = typeof createeventsroute;

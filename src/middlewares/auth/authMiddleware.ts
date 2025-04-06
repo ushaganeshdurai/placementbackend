@@ -26,6 +26,7 @@ export const supabaseMiddleware = createMiddleware<AppBindings>(async (c, next) 
         return parseCookieHeader(c.req.header('Cookie') ?? '')
       },
       setAll(cookiesToSet) {
+        // @ts-ignore
         cookiesToSet.forEach(({ name, value, options }) => setCookie(c, name, value, options))
       },
     },

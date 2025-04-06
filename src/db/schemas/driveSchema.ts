@@ -10,7 +10,7 @@ export const drive = pgTable('drive', {
     companyName: varchar("company_name"),
     jobDescription: text("job_description"),
     driveDate: date("drive_date"),
-    driveLink: text("drive_link"),
+    driveLink: text("drive_link"), role: text("role"),lpa:text("lpa"),
     expiration: timestamp({ withTimezone: true, mode: 'string' }),
     department: text().array(),
     batch: text(),
@@ -27,6 +27,8 @@ export const insertDriveSchema = createInsertSchema(drive).required({
     companyName: true,
     driveLink: true,
     department: true,
+    role: true,
+    lpa:true,
     jobDescription: true,
     expiration: true,
     batch: true

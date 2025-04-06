@@ -1,3 +1,5 @@
+
+
 import { eq, inArray } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
@@ -17,7 +19,8 @@ import type {
   LogoutAdminRoute,
   FeedGroupMailRoute,
   GetFeedMailRoute,
-  CreateEventsRoute
+  CreateEventsRoute,
+  PlacedStudentsRoute
 
 } from "./superadmin.routes";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
@@ -106,7 +109,7 @@ console.log(sessionToken)
   });
   return c.redirect("/superadmin", 302);
 };
-
+//@ts-ignore
 
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
@@ -118,16 +121,19 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   let userId = null;
   let userRole = null;
   let email = null;
-
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken, SECRET_KEY);
     if (!decoded) throw new Error("Invalid session");
+    // @ts-ignore
     userId = decoded.id;
+    // @ts-ignore
     userRole = decoded.role;
+    // @ts-ignore
     email = decoded.email;
     console.log("JWT Token:", jwtToken);
   } catch (error) {
+    // @ts-ignore
     if (error.name === "TokenExpiredError") { // Correct error check
       return c.json({ error: "Session expired" }, 401);
     }
@@ -206,7 +212,9 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
       const SECRET_KEY = process.env.SECRET_KEY!;
       const decoded = await verify(jwtToken, SECRET_KEY);
       if (!decoded) throw new Error("Invalid session");
+      // @ts-ignore
       userId = decoded.id;
+      // @ts-ignore
       userRole = decoded.role;
     } catch (error) {
       console.error("Session Verification Error:", error);
@@ -243,6 +251,7 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
 
       let insertedStaffs = [];
       if (uniqueStaffs.length > 0) {
+        // @ts-ignore
         insertedStaffs = await db.insert(staff).values(uniqueStaffs).returning();
       }
 
@@ -357,6 +366,7 @@ export const removeStaff: AppRouteHandler<RemoveStaffRoute> = async (c) => {
  * @see {@link db.insert} for database insertion.
  * @see {@link sendJobNotificationEmail} for sending email notifications.
  */
+//@ts-ignore
 export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
   if (!jwtToken) return c.json({ error: "Unauthorized: No session found" }, 401);
@@ -381,12 +391,14 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
       batch: job.batch!,
       jobDescription: job.jobDescription!,
       department: job.department,
+      role:job.role,
+      lpa:job.lpa,
       expiration: job.expiration!,
       companyName: job.companyName!,
       driveDate: job.driveDate!,
       driveLink: job.driveLink!,
     }));
-
+// @ts-ignore
     const insertedJobs = await db.insert(drive).values(validJobs).returning();
 
     await Promise.all(
@@ -400,6 +412,7 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
     return c.json(insertedJobs, HttpStatusCodes.OK);
   } catch (error) {
     console.error("Job creation error:", error);
+    // @ts-ignore
     return c.json({ error: "Failed to create jobs", details: error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 };
@@ -510,6 +523,7 @@ export const removedrive: AppRouteHandler<RemoveDriveRoute> = async (c) => {
  * - Returns 403 if the user does not have the "super_admin" role.
  * - Returns 500 if there is an error during the database query.
  */
+//@ts-ignore
 export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
 
@@ -524,7 +538,9 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken!, SECRET_KEY);
     if (!decoded) throw new Error("Invalid session");
+    // @ts-ignore
     userId = decoded.id;
+    // @ts-ignore
     userRole = decoded.role;
     console.log(jwtToken);
   } catch (error) {
@@ -599,6 +615,7 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
  * - Invalid or incomplete student data.
  * - Internal server errors.
  */
+//@ts-ignore
 export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = async (c) => {
   type StudentData = {
     staffEmail: string;
@@ -617,6 +634,7 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
       const SECRET_KEY = process.env.SECRET_KEY!;
       const decoded = await verify(jwtToken, SECRET_KEY);
       if (!decoded) throw new Error("Invalid session");
+      // @ts-ignore
       userRole = decoded.role;
     } catch (error) {
       console.error("Session Verification Error:", error);
@@ -682,30 +700,33 @@ export const bulkUploadStudents: AppRouteHandler<BulkUploadStudentsRoute> = asyn
  * @returns A JSON response containing the list of jobs with associated student applications
  *          or an error message with the appropriate HTTP status code.
  */
+//@ts-ignore
 export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = async (c) => {
   const authHeader = c.req.header("Authorization");
-  let jwtToken = null;
+  let jwtToken: string | null = null;
 
   if (authHeader && authHeader.startsWith("Bearer ")) {
     jwtToken = authHeader.split(" ")[1];
   } else {
-    jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+    const sessionToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+    jwtToken = sessionToken || null;
   }
 
   if (!jwtToken) {
     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
   }
 
-  let userId = null;
-  let userRole = null;
+  let userId: string | null = null;
+  let userRole:string|null = null;
 
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken, SECRET_KEY);
     if (!decoded) throw new Error("Invalid session");
+    // @ts-ignore
     userId = decoded.id;
+    // @ts-ignore
     userRole = decoded.role;
-    console.log("Decoded JWT:", decoded);
   } catch (error) {
     console.error("Session Verification Error:", error);
     return c.json({ error: "Invalid session", success: false }, 401);
@@ -745,10 +766,10 @@ export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = as
       .execute();
 
     const groupedJobs = jobsWithStudents.reduce((acc, curr) => {
-      const jobId = curr.jobId;
+      const jobId = curr.jobId as number;
       if (!acc[jobId]) {
         acc[jobId] = {
-          jobId: curr.jobId,
+          jobId: curr.jobId as number,
           companyName: curr.companyName,
           jobDescription: curr.jobDescription,
           driveDate: curr.driveDate,
@@ -782,7 +803,6 @@ export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = as
 };
 
 
-
 /**
  * Handles the logout process for an admin user.
  *
@@ -805,8 +825,6 @@ export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = as
 export const logoutAdmin: AppRouteHandler<LogoutAdminRoute> = async (c) => {
   const jwtToken = getCookie(c, "admin_session");
   const oauthToken = getCookie(c, "oauth_session");
-  console.log(jwtToken);
-  console.log("Trying to logout", oauthToken);
   if (!jwtToken && !oauthToken) {
     return c.json({ message: "No active session" }, HttpStatusCodes.UNAUTHORIZED);
   }
@@ -926,16 +944,20 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => 
     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
   }
 
-  let userId = null;
-  let userRole = null;
+  let userId: string | undefined;
+  let userRole: string | undefined;
 
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken!, SECRET_KEY);
+
     if (!decoded) throw new Error("Invalid session");
+    // @ts-ignore
     userId = decoded.id;
+    // @ts-ignore
     userRole = decoded.role;
-    console.log(jwtToken)
+
+    console.log(jwtToken);
   } catch (error) {
     if (error === "TokenExpiredError") {
       return c.json({ error: "Session expired", success: false }, 401);
@@ -953,7 +975,6 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => 
     return c.json({
       groupMailList,
     }, 200);
-
   } catch (error) {
     console.error("Database query error:", error);
     return c.json({ error: "Failed to fetch data", success: false }, 500);
@@ -999,13 +1020,14 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
 
     // Verify session token
     const SECRET_KEY = process.env.SECRET_KEY!;
-    let userRole: string;
+  
 
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
       if (!decoded || !decoded.role) {
         return c.json({ error: "Invalid session: Staff ID missing" }, HttpStatusCodes.UNAUTHORIZED);
       }
+      let userRole: string;
       userRole = decoded.role as string;
     } catch (error) {
       console.error("Session Verification Error:", error);
@@ -1018,7 +1040,7 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
       return c.json({ error: "Invalid event data" }, HttpStatusCodes.BAD_REQUEST);
     }
 
-    let posterUrl = eventData.url; // Use existing URL if provided
+    let posterUrl: string | null = typeof eventData.url === "string" ? eventData.url : null; 
 
     // Handle file upload
     if (eventData.file) {
@@ -1043,17 +1065,14 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
         console.error("Supabase Upload Error:", error);
         return c.json({ error: `File upload failed: ${error.message}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
       }
-
-      // Get public URL
       posterUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
-      console.log("Uploaded file URL:", posterUrl);
     }
 
     const newEvent = {
       event_name: eventData.event_name,
       event_link: eventData.event_link,
       date: eventData.date,
-      url: posterUrl || null,
+      url: posterUrl,
     };
 
     const insertedEvent = await db
@@ -1080,7 +1099,6 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found", success: false }, 401);
     }
-console.log(jwtToken)
     let userRole: string | null = null;
     let userId: string | null = null;
 
@@ -1125,6 +1143,7 @@ console.log(jwtToken)
             .execute();
 
           if (existingStudent.length === 0) {
+            //@ts-ignore
             errors.push({ email, error: "Student not found" });
             continue;
           }
@@ -1134,11 +1153,12 @@ console.log(jwtToken)
             .set({ placedStatus: "yes", companyPlacedIn: companyName })
             .where(eq(students.email, email))
             .returning();
-
+//@ts-ignore
           updatedStudents.push(updatedStudent[0]);
           console.log(`Updated student ${email}:`, updatedStudent);
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Error updating student ${email}:`, error);
+          //@ts-ignore
           errors.push({ email, error: error.message });
         }
       }
@@ -1155,8 +1175,9 @@ console.log(jwtToken)
     }
 
     return c.json({ error: "Unauthorized", success: false }, 403);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Students update error:", error);
     return c.json({ error: "An error occurred", success: false }, 500);
   }
+
 };

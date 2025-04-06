@@ -14,6 +14,7 @@ export const drive = pgTable("drive", {
 	driveLink:text("drive_link"),
 	expiration: timestamp({ withTimezone: true, mode: 'string' }),
 	batch: varchar({ length: 4 }),
+	role: text("role"),lpa:text("lpa"),
 	department: text().array(),
 });
 
@@ -71,6 +72,7 @@ export const profiles = pgTable("profiles", {
 }, (table) => [
 	foreignKey({
 			columns: [table.id],
+			// @ts-ignore
 			foreignColumns: [users.id],
 			name: "profiles_id_fkey"
 		}).onDelete("cascade"),
@@ -121,6 +123,7 @@ export const superAdmin = pgTable("super_admin", {
 }, (table) => [
 	foreignKey({
 			columns: [table.userId],
+			// @ts-ignore
 			foreignColumns: [users.id],
 			name: "super_admin_user_id_fkey"
 		}).onDelete("cascade"),

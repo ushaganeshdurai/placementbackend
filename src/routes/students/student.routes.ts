@@ -110,10 +110,8 @@ export const applyfordrive = createRoute({
     body: jsonContentRequired(driveIdSchema, "drive Id is needed")
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.object({ message: z.string() }),
-      "Applied for drive successfully"
-    ),
+    [HttpStatusCodes.OK]: {description:
+      "Applied for drive successfully"},
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       z.object({ error: z.string() }),
       "Incorrect password"
@@ -138,10 +136,9 @@ export const updatepassword = createRoute({
     body: jsonContentRequired(updatePasswordSchema, "Update staff password")
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.object({ message: z.string() }),
-      "Password updated successfully"
-    ),
+    [HttpStatusCodes.OK]: {
+      description:"Password updated successfully"
+  },
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createErrorSchema(updatePasswordSchema),
       "Missing or invalid password details"
@@ -261,10 +258,9 @@ export const removeApplication = createRoute({
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.object({ message: z.string() }),
-      "Application removed successfully"
-    ),
+    [HttpStatusCodes.OK]: {
+      description:"Application removed successfully"
+    },
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       z.object({ error: z.string() }),
       "Unauthorized access"
@@ -332,10 +328,7 @@ export const logoutStudent = createRoute({
   path: "/student/logout",
   method: "post",
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      { message: "Logged out successfully" },
-      "Successful logout"
-    ),
+    [HttpStatusCodes.OK]: {description:"Logged out successfully"},
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       { message: "No active session" },
       "Unauthorized access"

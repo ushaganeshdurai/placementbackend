@@ -11,7 +11,7 @@ import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
 import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
 import { groupMails, students } from "drizzle/schema";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { insertStudentSchema, selectStudentSchema } from "@/db/schemas/studentSchema";
+import {  selectStudentSchema } from "@/db/schemas/studentSchema";
 
 
 
@@ -82,10 +82,8 @@ export const createstaffsroute = createRoute({
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContentRequired(
-      z.array(selectStaffSchema),  // The response will contain an array of created staff objects
-      "Created many staffs",
-    ),
+    [HttpStatusCodes.OK]: {description:
+      "Created many staffs"},
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createErrorSchema(insertStaffSchema),
       "The validation error(s)",
@@ -143,7 +141,7 @@ export const insertStudentsSchema = createInsertSchema(students)
     regNo: true,
     rollNo: true,
     batch: true,
-  }) .extend({
+  }).extend({
     staffEmail: z.string().email(),
   });
 
@@ -266,7 +264,7 @@ export const getJobsWithStudentsRoute = createRoute({
             batch: z.string(),
             department: z.array(z.string()),
             createdAt: z.string(),
-            driveLink: z.string(), // Added driveLink
+            driveLink: z.string(), 
             students: z.array(
               z.object({
                 applicationId: z.number(),
@@ -300,14 +298,10 @@ export const logoutAdmin = createRoute({
   path: "/superadmin/logout",
   method: "post",
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      { message: "Logged out successfully" },
-      "Successful logout"
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      { message: "No active session" },
-      "Unauthorized access"
-    ),
+    [HttpStatusCodes.OK]:
+      { description: "Logged out successfully" },
+    [HttpStatusCodes.UNAUTHORIZED]:
+      { description: "Unauthorized access" },
   },
   middlewares: [supabaseMiddleware],
 });
@@ -388,25 +382,19 @@ export const createeventsroute = createRoute({
         date: z.string().refine((val) => !isNaN(Date.parse(val)), {
           message: "Invalid date format",
         }),
-        file: z.string().optional(),      
+        file: z.string().optional(),
         fileName: z.string().optional(),
-        fileType: z.string().optional(),  
+        fileType: z.string().optional(),
       }).passthrough(),
       "Event details including optional file upload"
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.object({
-        id: z.number(),
-        event_name: z.string(),
-        event_link: z.string(),
-        date: z.string(),
-        url: z.string().nullable(),
-        staff_id: z.string(),
-      }),
-      "Successfully created event"
-    ),
+    [HttpStatusCodes.OK]: {
+      description:
+        "Successfully created event"
+    }
+    ,
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       z.object({ error: z.string() }),
       "Invalid event data"
@@ -461,6 +449,7 @@ export type CreateEventsRoute = typeof createeventsroute;
 export type CreateStaffsRoute = typeof createstaffsroute;
 export type RemoveStaffRoute = typeof removestaffroute;
 export type RemoveDriveRoute = typeof removedriveroute
+export type PlacedStudentsRoute = typeof placedstudentsRoute
 export type CreateJobsRoute = typeof createjobroute
 export type RegisteredStudentsRoute = typeof registeredstudents
 export type BulkUploadStudentsRoute = typeof bulkuploadstudents
