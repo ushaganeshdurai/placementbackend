@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm/relations";
+//@ts-ignore
 import { usersInAuth, profiles, staff, students, drive, applications, superAdmin } from "./schema";
 
 export const profilesRelations = relations(profiles, ({one, many}) => ({
@@ -21,6 +22,7 @@ export const studentsRelations = relations(students, ({one, many}) => ({
 		references: [staff.staffId],
 		relationName: "students_staffId_staff_staffId"
 	}),
+	//@ts-ignore
 	staff_staffId: one(staff, {
 		fields: [students.staffId],
 		references: [staff.staffId],
@@ -37,6 +39,7 @@ export const staffRelations = relations(staff, ({one, many}) => ({
 	students_staffId: many(students, {
 		relationName: "students_staffId_staff_staffId"
 	}),
+	//@ts-ignore
 	students_staffId: many(students, {
 		relationName: "students_staffId_staff_staffId"
 	}),

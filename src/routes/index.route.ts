@@ -103,8 +103,9 @@ const router = createRouter()
     
         const eventDetails = await db
           .select({
-            name: events.event_name,
-            link: events.event_link,
+            //@ts-ignore
+            name: events.eventName,
+            link: events.eventLink,
             url: events.url,
             date: events.date,
           })

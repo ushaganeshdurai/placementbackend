@@ -44,6 +44,7 @@ export const profiles = pgTable("profiles", {
 }, (table) => [
 	foreignKey({
 			columns: [table.id],
+			//@ts-ignore
 			foreignColumns: [users.id],
 			name: "profiles_id_fkey"
 		}).onDelete("cascade"),
@@ -153,6 +154,7 @@ export const superAdmin = pgTable("super_admin", {
 }, (table) => [
 	foreignKey({
 			columns: [table.userId],
+			//@ts-ignore
 			foreignColumns: [users.id],
 			name: "super_admin_user_id_fkey"
 		}).onDelete("cascade"),

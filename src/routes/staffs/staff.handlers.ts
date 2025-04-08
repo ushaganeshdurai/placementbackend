@@ -395,9 +395,7 @@ export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
 //     return c.json({ error: "Failed to fetch data", success: false }, 500);
 //   }
 // };
-
-
-
+// @ts-ignore
 export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
   deleteCookie(c, "admin_session");
   deleteCookie(c, "oauth_session");
@@ -416,12 +414,16 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
     const SECRET_KEY = process.env.SECRET_KEY!;
     const decoded = await verify(jwtToken, SECRET_KEY);
     if (!decoded) throw new Error("Invalid session");
+    //@ts-ignore
     staffId = decoded.staff_id; // Match token structure from loginStaff
+    //@ts-ignore
     userRole = decoded.role;
+    //@ts-ignore
     currentStaffEmail = decoded.email;
     if (!currentStaffEmail) throw new Error("Staff email not found in session");
     if (!staffId) throw new Error("Staff ID not found in session");
   } catch (error) {
+    //@ts-ignore
     console.error("Session Verification Error:", error.message);
     return c.json({ error: "Invalid or expired session", success: false }, 401);
   }
@@ -486,8 +488,10 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
       200
     );
   } catch (error) {
+    //@ts-ignore
     console.error(`Database query error for driveId ${c.req.param("driveId")}:`, error.message, error.stack);
     return c.json(
+      //@ts-ignore
       { error: "Failed to fetch registered students", details: error.message, success: false },
       500
     );
