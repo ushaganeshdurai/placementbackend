@@ -11,6 +11,7 @@ import type {
   CreateJobsRoute,
   GetJobsWithStudentsRoute,
   CreateStaffsRoute,
+  CreateCoordinatorsRoute,
   GetOneRoute,
   LoginSuperAdmin,
   RegisteredStudentsRoute,
@@ -27,6 +28,7 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 import nodemailer from 'nodemailer';
 import { createClient } from "@supabase/supabase-js";
+import { coordinators } from "@/db/schemas/coordinatorsSchema";
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -98,7 +100,7 @@ export const loginAdmin: AppRouteHandler<LoginSuperAdmin> = async (c) => {
 
   const SECRET_KEY = process.env.SECRET_KEY!;
   const sessionToken = await sign({ id: admin.id, email: admin.email, role: "super_admin" }, SECRET_KEY);
-console.log(sessionToken)
+  console.log(sessionToken)
 
   setCookie(c, "admin_session", sessionToken, {
     httpOnly: true,
@@ -166,7 +168,7 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
         name: students.name,
         batch: students.batch,
         department: students.department,
-        placedStatus:students.placedStatus
+        placedStatus: students.placedStatus
       })
       .from(students)
       .execute();
@@ -271,6 +273,69 @@ export const createStaffs: AppRouteHandler<CreateStaffsRoute> = async (c) => {
     return c.json({ error: "Failed to process staff creation" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 };
+
+
+
+/**
+ * Creates new coordinator members by validating input and inserting into the database.
+ * @param c - The context object containing the request and response.
+ * @returns A JSON response with inserted and skipped staff details.
+ */
+export const createCoordinators: AppRouteHandler<CreateCoordinatorsRoute> = async (c) => {
+  try {
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
+    if (!jwtToken) {
+      return c.json({ error: "Unauthorized: No session found" }, 401);
+    }
+
+    let userRole = null;
+    let userId = null;
+
+    try {
+      const SECRET_KEY = process.env.SECRET_KEY!;
+      const decoded = await verify(jwtToken, SECRET_KEY);
+      if (!decoded) throw new Error("Invalid session");
+      // @ts-ignore
+      userId = decoded.id;
+      // @ts-ignore
+      userRole = decoded.role;
+    } catch (error) {
+      console.error("Session Verification Error:", error);
+      return c.json({ error: "Invalid session" }, 401);
+    }
+
+    const newCoordinators = c.req.valid("json");
+    if (!Array.isArray(newCoordinators)) {
+      return c.json([], HttpStatusCodes.OK);
+    }
+
+    if (userRole === "super_admin") {
+      const validCoordinators = await Promise.all(
+        newCoordinators.map(async (coord) => ({
+          phoneNumber: coord.phoneNumber,
+          name: coord.name,
+          dept: coord.dept || null,
+        }))
+      );
+
+      let insertedCoordinators = await db.insert(coordinators).values(validCoordinators).returning();
+
+      // Return response with both inserted
+      return c.json(
+        {
+          inserted: insertedCoordinators,
+        },
+        HttpStatusCodes.OK
+      );
+    }
+
+    return c.json({ error: "Unauthorized" }, 403);
+  } catch (error) {
+    console.error("Staff creation error:", error);
+    return c.json({ error: "Failed to process staff creation" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  }
+};
+
 
 /**
  * Removes a staff member by ID.
@@ -391,14 +456,14 @@ export const createjobs: AppRouteHandler<CreateJobsRoute> = async (c) => {
       batch: job.batch!,
       jobDescription: job.jobDescription!,
       department: job.department,
-      role:job.role,
-      lpa:job.lpa,
+      role: job.role,
+      lpa: job.lpa,
       expiration: job.expiration!,
       companyName: job.companyName!,
       driveDate: job.driveDate!,
       driveLink: job.driveLink!,
     }));
-// @ts-ignore
+    // @ts-ignore
     const insertedJobs = await db.insert(drive).values(validJobs).returning();
 
     await Promise.all(
@@ -717,7 +782,7 @@ export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = as
   }
 
   let userId: string | null = null;
-  let userRole:string|null = null;
+  let userRole: string | null = null;
 
   try {
     const SECRET_KEY = process.env.SECRET_KEY!;
@@ -1020,7 +1085,7 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
 
     // Verify session token
     const SECRET_KEY = process.env.SECRET_KEY!;
-  
+
 
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
@@ -1040,7 +1105,7 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
       return c.json({ error: "Invalid event data" }, HttpStatusCodes.BAD_REQUEST);
     }
 
-    let posterUrl: string | null = typeof eventData.url === "string" ? eventData.url : null; 
+    let posterUrl: string | null = typeof eventData.url === "string" ? eventData.url : null;
 
     // Handle file upload
     if (eventData.file) {
@@ -1077,6 +1142,7 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
 
     const insertedEvent = await db
       .insert(events)
+      // @ts-ignore
       .values(newEvent)
       .returning();
 
@@ -1095,7 +1161,7 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
 
 export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) => {
   try {
-    const jwtToken = getCookie(c, "admin_session");
+    const jwtToken = getCookie(c, "admin_session") || getCookie(c, "oauth_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found", success: false }, 401);
     }
@@ -1153,7 +1219,7 @@ export const placedstudents: AppRouteHandler<PlacedStudentsRoute> = async (c) =>
             .set({ placedStatus: "yes", companyPlacedIn: companyName })
             .where(eq(students.email, email))
             .returning();
-//@ts-ignore
+          //@ts-ignore
           updatedStudents.push(updatedStudent[0]);
           console.log(`Updated student ${email}:`, updatedStudent);
         } catch (error: any) {

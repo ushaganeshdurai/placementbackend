@@ -1,32 +1,63 @@
-import { pgTable, bigint, timestamp, varchar, text, date, uuid, foreignKey, unique, integer, doublePrecision, primaryKey, pgEnum, serial } from "drizzle-orm/pg-core"
+import { pgTable, unique, serial, text, smallint, bigint, timestamp, varchar, date, foreignKey, uuid, doublePrecision, integer, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const appliedOrNot = pgEnum("applied_or_not", ['yes', 'partial', 'no'])
 export const placedOrNot = pgEnum("placed_or_not", ['yes', 'no'])
 export const userRole = pgEnum("user_role", ['staff', 'student', 'super_admin'])
 
+
+export const groupMails = pgTable("group_mails", {
+	id: serial().primaryKey().notNull(),
+	email: text().notNull(),
+}, (table) => [
+	unique("group_mails_email_key").on(table.email),
+]);
+
+export const coordinators = pgTable("coordinators", {
+	name: text(),
+	dept: text(),
+	phoneNumber: text("phone number"),
+	id: smallint().primaryKey().generatedByDefaultAsIdentity({ name: "coordinators_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 32767, cache: 1 }),
+}, (table) => [
+	unique("coordinators_id_key").on(table.id),
+]);
+
 export const drive = pgTable("drive", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "drive_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	companyName: varchar("company_name"),
 	jobDescription: text("job_description"),
 	driveDate: date("drive_date"),
-	driveLink:text("drive_link"),
 	expiration: timestamp({ withTimezone: true, mode: 'string' }),
 	batch: varchar({ length: 4 }),
-	role: text("role"),lpa:text("lpa"),
 	department: text().array(),
+	driveLink: text("drive_link"),
+	role: text(),
+	lpa: text(),
 });
+
+export const profiles = pgTable("profiles", {
+	id: uuid().primaryKey().notNull(),
+	userRole: userRole("user_role").notNull(),
+	email: text(),
+}, (table) => [
+	foreignKey({
+			columns: [table.id],
+			foreignColumns: [users.id],
+			name: "profiles_id_fkey"
+		}).onDelete("cascade"),
+	unique("profiles_email_key").on(table.email),
+]);
 
 export const students = pgTable("students", {
 	staffId: uuid("staff_id"),
 	studentId: uuid("student_id").defaultRandom().primaryKey().notNull(),
 	password: text(),
-	companyPlacedIn: text("company_placed_in"),
-	url:text('url'),
 	email: text().notNull(),
 	skillSet: text("skill_set"),
-	phoneNumber: integer("phone_number"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	phoneNumber: bigint("phone_number", { mode: "number" }),
 	languagesKnown: text("languages_known"),
 	name: text(),
 	tenthMark: doublePrecision("tenth_mark"),
@@ -41,6 +72,8 @@ export const students = pgTable("students", {
 	noOfArrears: integer("no_of_arrears"),
 	userId: uuid("user_id"),
 	placedStatus: placedOrNot().default('no'),
+	url: text(),
+	companyPlacedIn: text("company_placed_in"),
 }, (table) => [
 	foreignKey({
 			columns: [table.staffId],
@@ -65,20 +98,6 @@ export const students = pgTable("students", {
 	unique("unique_student_roll_no").on(table.rollNo),
 ]);
 
-export const profiles = pgTable("profiles", {
-	id: uuid().primaryKey().notNull(),
-	userRole: userRole("user_role").notNull(),
-	email: text(),
-}, (table) => [
-	foreignKey({
-			columns: [table.id],
-			// @ts-ignore
-			foreignColumns: [users.id],
-			name: "profiles_id_fkey"
-		}).onDelete("cascade"),
-	unique("profiles_email_key").on(table.email),
-]);
-
 export const staff = pgTable("staff", {
 	staffId: uuid("staff_id").defaultRandom().primaryKey().notNull(),
 	name: text(),
@@ -95,9 +114,20 @@ export const staff = pgTable("staff", {
 	unique("staff_email_unique").on(table.email),
 ]);
 
+export const events = pgTable("events", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "events_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	eventName: text("event_name").notNull(),
+	eventLink: text("event_link"),
+	url: text(),
+	date: text(),
+});
+
 export const applications = pgTable("applications", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity({ name: "applications_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
 	studentId: uuid("student_id").notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	driveId: bigint("drive_id", { mode: "number" }).notNull(),
 	appliedAt: timestamp("applied_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
@@ -123,7 +153,6 @@ export const superAdmin = pgTable("super_admin", {
 }, (table) => [
 	foreignKey({
 			columns: [table.userId],
-			// @ts-ignore
 			foreignColumns: [users.id],
 			name: "super_admin_user_id_fkey"
 		}).onDelete("cascade"),
@@ -131,18 +160,3 @@ export const superAdmin = pgTable("super_admin", {
 	unique("super_admin_email_key").on(table.email),
 	unique("super_admin_user_id_key").on(table.userId),
 ]);
-
-export const groupMails = pgTable("group_mails", {
-	id: serial().primaryKey().notNull(),
-	email: text().notNull(),
-}, (table) => [
-	unique("group_mails_email_key").on(table.email),
-]);
-
-export const events = pgTable("events", {
-	id: serial().primaryKey().notNull(),
-	event_name: text().notNull(),
-	event_link:text('event_link'),
-	date:text('date'),
-	url:text('url')
-});

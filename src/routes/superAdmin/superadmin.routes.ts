@@ -11,7 +11,8 @@ import { insertDriveSchema, selectDriveSchema } from "@/db/schemas/driveSchema";
 import { selectApplicationsSchema } from "@/db/schemas/applicationsSchema";
 import { groupMails, students } from "drizzle/schema";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import {  selectStudentSchema } from "@/db/schemas/studentSchema";
+import { selectStudentSchema } from "@/db/schemas/studentSchema";
+import { insertCoordinatorsSchema } from "@/db/schemas/coordinatorsSchema";
 
 
 
@@ -82,8 +83,10 @@ export const createstaffsroute = createRoute({
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: {description:
-      "Created many staffs"},
+    [HttpStatusCodes.OK]: {
+      description:
+        "Created many staffs"
+    },
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createErrorSchema(insertStaffSchema),
       "The validation error(s)",
@@ -91,7 +94,22 @@ export const createstaffsroute = createRoute({
   },
 });
 
+//get co ordinators data (post request)
+export const createcoordinatorsroute = createRoute({
+  path: "/superadmin/createcoordinators",
+  method: "post",
+  request: {
+    body: jsonContentRequired(
+      z.array(insertCoordinatorsSchema),
+      "Add multiple co ordinators"
+    )
+  },
+  responses: {
+    [HttpStatusCodes.OK]: { description: "Created many coordinators" },
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(createErrorSchema(insertCoordinatorsSchema), "The validation errors")
+  }
 
+})
 
 //get the id of staff to be deleted from params
 
@@ -264,7 +282,7 @@ export const getJobsWithStudentsRoute = createRoute({
             batch: z.string(),
             department: z.array(z.string()),
             createdAt: z.string(),
-            driveLink: z.string(), 
+            driveLink: z.string(),
             students: z.array(
               z.object({
                 applicationId: z.number(),
@@ -447,6 +465,7 @@ export type LoginSuperAdmin = typeof loginAdmin
 export type GetOneRoute = typeof getOne;
 export type CreateEventsRoute = typeof createeventsroute;
 export type CreateStaffsRoute = typeof createstaffsroute;
+export type CreateCoordinatorsRoute = typeof createcoordinatorsroute;
 export type RemoveStaffRoute = typeof removestaffroute;
 export type RemoveDriveRoute = typeof removedriveroute
 export type PlacedStudentsRoute = typeof placedstudentsRoute
