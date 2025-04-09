@@ -7,6 +7,7 @@ import { createRouter } from "@/lib/create-app";
 import { events, students } from "drizzle/schema";
 import db from "@/db";
 import { drive } from "@/db/schemas/driveSchema";
+import { coordinators } from "@/db/schemas/coordinatorsSchema";
 
 const router = createRouter()
   .openapi(
@@ -129,7 +130,64 @@ const router = createRouter()
       }
     }
   )
-
+  .openapi(
+    createRoute({
+      tags: ["Events"],
+      method: "get",
+      path: "/get-coords",
+      responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+          {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                dept: { type: "string" },
+                phoneNumber: { type: "string" },
+              }
+            }
+          },
+          "Successfully retrieved department coordinators"
+        ),
+        [HttpStatusCodes.NOT_FOUND]: jsonContent(
+          { error: "No coordinators found" },
+          "No coordinators available"
+        ),
+        [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+          { error: "Internal server error" },
+          "Error fetching coordinators"
+        )
+      }
+    }),
+    // @ts-ignore
+    async (c) => {
+      try {
+        const coordinatorDetails = await db
+          .select({
+            //@ts-ignore
+            name: coordinators.name,
+            phoneNumber: coordinators.phoneNumber,
+            dept: coordinators.dept,
+          })
+          .from(coordinators)
+          .execute();
+        if (coordinatorDetails.length === 0) {
+          console.log("No coordinators found.");
+          return c.json({ error: "No coordinators found" }, HttpStatusCodes.NOT_FOUND);
+        }
+    
+        return c.json(coordinatorDetails, HttpStatusCodes.OK);
+      } catch (error) {
+        console.error("Error fetching department co-ordinators:", error);
+        return c.json(
+          { error: "Internal server error" },
+          HttpStatusCodes.INTERNAL_SERVER_ERROR
+        );
+      }
+    }
+  )
+  
   .openapi(
     createRoute({
       tags: ["Get jobs alone"],

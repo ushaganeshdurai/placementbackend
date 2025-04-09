@@ -821,13 +821,16 @@ export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = as
           batch: students.batch,
           department: students.department,
           appliedAt: applications.appliedAt,
+          placedStatus:students.placedStatus,
           phoneNumber: students.phoneNumber,
+          staffEmail: staff.name,
           noOfArrears: students.noOfArrears,
         },
       })
       .from(drive)
       .leftJoin(applications, eq(drive.id, applications.driveId))
       .leftJoin(students, eq(applications.studentId, students.studentId))
+      .leftJoin(staff, eq(students.staffId, staff.staffId)) 
       .execute();
 
     const groupedJobs = jobsWithStudents.reduce((acc, curr) => {
