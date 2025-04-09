@@ -1137,8 +1137,8 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
     }
 
     const newEvent = {
-      event_name: eventData.event_name,
-      event_link: eventData.event_link,
+      eventName: eventData.event_name,
+      eventLink: eventData.event_link,
       date: eventData.date,
       url: posterUrl,
     };

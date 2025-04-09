@@ -1336,90 +1336,100 @@ export const resetPassword: AppRouteHandler<ResetPassword> = async (c) => {
  * @param c - The context object containing the request and response.
  * @returns A JSON response with the created event or an error message.
  */
+
 export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
   deleteCookie(c, "student_session");
   deleteCookie(c, "admin_session");
   deleteCookie(c, "oauth_session");
+
   try {
-    // Session validation
     const jwtToken = getCookie(c, "staff_session");
     if (!jwtToken) {
       return c.json({ error: "Unauthorized: No session found" }, HttpStatusCodes.UNAUTHORIZED);
     }
-    // Initialize Supabase
+
     let supabase = c.get("supabase");
     if (!supabase) {
       const supabaseUrl = process.env.SUPABASE_URL;
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (!supabaseUrl || !supabaseKey) {
-        throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment variables.");
+        throw new Error("SUPABASE env vars missing");
       }
       supabase = createClient(supabaseUrl, supabaseKey);
     }
-    // Verify session token
+
     const SECRET_KEY = process.env.SECRET_KEY!;
     let staffId: string;
-
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
       if (!decoded || !decoded.staff_id) {
         return c.json({ error: "Invalid session: Staff ID missing" }, HttpStatusCodes.UNAUTHORIZED);
       }
-      staffId = decoded.staff_id as string;
+      //@ts-ignore
+      staffId = decoded.staff_id;
     } catch (error) {
-      console.error("Session Verification Error:", error);
+      console.error("JWT Verification failed:", error);
       return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
     }
-    // Validate and parse the request body
-    const eventData = c.req.valid("json");
+
+    const eventData = await c.req.json();
+    console.log("Event anme ",eventData.event_name);
+    
+
     if (!eventData || typeof eventData !== "object") {
       return c.json({ error: "Invalid event data" }, HttpStatusCodes.BAD_REQUEST);
     }
-    let posterUrl = eventData.url; // Use existing URL if provided
-    // Handle file upload
-    if (eventData.file) {
-      if (typeof eventData.file !== "string") {
-        return c.json({ error: "Invalid file: Must be a base64-encoded string" }, HttpStatusCodes.BAD_REQUEST);
-      }
-      const fileBuffer = Buffer.from(eventData.file, "base64");
-      const fileName = eventData.fileName
-        ? `events/${Date.now()}_${eventData.fileName}`
-        : `events/${Date.now()}_poster`;
 
-      const { data, error } = await supabase.storage
-        .from("bucky")
-        .upload(fileName, fileBuffer, {
-          contentType: eventData.fileType || "image/jpeg",
-          cacheControl: "3600",
-          upsert: true,
-        });
+    let posterUrl: string | null = null;
 
-      if (error) {
-        console.error("Supabase Upload Error:", error);
-        return c.json({ error: `File upload failed: ${error.message}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+    // ✅ Handle base64 image upload if present
+    if (eventData.file && typeof eventData.file === "string") {
+      try {
+        const fileBuffer = Buffer.from(eventData.file, "base64");
+
+        const fileName = eventData.fileName
+          ? `events/${Date.now()}_${eventData.fileName}`
+          : `events/${Date.now()}_poster`;
+
+        const contentType = eventData.fileType || "image/jpeg";
+
+        const { data, error } = await supabase.storage
+          .from("bucky")
+          .upload(fileName, fileBuffer, {
+            contentType,
+            cacheControl: "3600",
+            upsert: true,
+          });
+
+        if (error || !data) {
+          console.error("Upload error:", error);
+          return c.json({ error: `Upload failed: ${error.message}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+        }
+
+        posterUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+      } catch (e) {
+        console.error("Error processing file:", e);
+        return c.json({ error: "Failed to process file upload" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
       }
-      // Get public URL
-      posterUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
     }
-    // Create event in the database
+
     const newEvent = {
-      event_name: eventData.event_name,
-      event_link: eventData.event_link,
+      eventName: eventData.event_name,
+      eventLink: eventData.event_link,
       date: eventData.date,
       url: posterUrl || null,
     };
-    const insertedEvent = await db
-      .insert(events)
-      //@ts-ignore
-      .values(newEvent)
-      .returning();
+
+    //@ts-ignore
+    const insertedEvent = await db.insert(events).values(newEvent).returning();
 
     if (insertedEvent.length === 0) {
-      return c.json({ error: "Failed to create event" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+      return c.json({ error: "Event not created" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
     }
+
     return c.json(insertedEvent[0], HttpStatusCodes.OK);
-  } catch (error) {
-    console.error("Event creation error:", error);
+  } catch (err) {
+    console.error("Fatal error in createevents:", err);
     return c.json({ error: "Something went wrong" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 };
