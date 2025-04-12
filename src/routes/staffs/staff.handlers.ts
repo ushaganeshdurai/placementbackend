@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { count, eq, inArray, sql } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
@@ -434,7 +434,9 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
 
   try {
     const { driveId } = c.req.valid("param");
-
+    const page  = Number(c.req.query("page")||1);
+    const limit = Number(c.req.query("limit")||10);
+    const offset = (page - 1) * limit;
     // Check if drive exists
     const driveExists = await db
       .select({ id: drive.id })
@@ -469,6 +471,8 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
       .innerJoin(drive, eq(applications.driveId, drive.id))
       .leftJoin(staff, eq(students.staffId, staff.staffId))
       .where(eq(applications.driveId, driveId))
+      .offset(offset)
+      .limit(limit)
       .execute();
       let staffEmail = null;
     // Add staffEmail from session to each student
@@ -476,7 +480,12 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
       ...student,
       staffEmail, // Add the current staff's email from the session
     }));
-
+    const totalStudents = await db
+    .select({ count: count() }) // import `count` from `drizzle-orm`
+    .from(applications)
+    .where(eq(applications.driveId, driveId))
+    .execute();
+  
     return c.json(
       {
         success: "Fetched applications successfully",
@@ -484,6 +493,9 @@ export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = asyn
         role: userRole,
         registered_students: registeredStudentsList, // No overwrite of staffEmail
         currentStaffEmail, // Include for frontend use if needed
+        pagination:{
+          page,limit,total:totalStudents[0].count
+        }
       },
       200
     );
@@ -987,9 +999,9 @@ export const updatepassword: AppRouteHandler<UpdatePasswordRoute> = async (c) =>
 
 //@ts-ignore
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
-  deleteCookie(c, "student_session")
-  deleteCookie(c, "admin_session")
-  deleteCookie(c, "oauth_session")
+  deleteCookie(c, "student_session");
+  deleteCookie(c, "admin_session");
+  deleteCookie(c, "oauth_session");
   const jwtToken = getCookie(c, "staff_session");
 
   if (!jwtToken) {
@@ -1029,17 +1041,23 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       //@ts-ignore
       .where(eq(staff.staffId, staffId))
       .execute();
+
     if (staff_details.length === 0) {
       return c.json({ error: `Staff not found for staffId: ${staffId}` }, 404);
     }
 
     const staffEmail = staff_details[0].email;
     const staffDepartment = staff_details[0].department;
+
     if (!staffDepartment) {
       return c.json({ error: `Staff department not set for staffId: ${staffId}` }, 400);
     }
 
-    // Fetch all students in the staff's department
+    const page = Number(c.req.query("page") || 1);
+    const limit = Number(c.req.query("limit") || 10);
+    const offset = (page - 1) * limit;
+
+    // Fetch all students in department
     const allStudents = await db
       .select({
         studentId: students.studentId,
@@ -1066,24 +1084,70 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       .from(students)
       .leftJoin(staff, eq(students.staffId, staff.staffId))
       .where(eq(students.department, staffDepartment))
+      .offset(offset)
+      .limit(limit)
       .execute();
 
-    // Group all students by department and batch
+    const totalDeptStudents = await db
+      .select({ count: sql<number>`COUNT(*)`.as("count") })
+      .from(students)
+      .where(eq(students.department, staffDepartment))
+      .execute();
+    const total = totalDeptStudents[0]?.count || 0;
+
     const allStudentsByDeptAndBatch = allStudents.reduce((acc, student) => {
       const dept = student.department || "Unknown";
       const batch = student.batch || "Unknown";
       if (!acc[dept]) acc[dept] = {};
       acc[dept][batch] = [...(acc[dept][batch] || []), student];
       return acc;
-    }, {});
+    }, {} as Record<string, Record<string, typeof allStudents>>);
 
-    // Filter and group students added by this staff
-    const yourStudents = allStudents.filter((student) => student.staffId === staffId);
-    const yourStudentsByBatch = yourStudents.reduce((acc, student) => {
+    // Your students with pagination
+    const yourStudentsQuery = await db
+      .select({
+        studentId: students.studentId,
+        email: students.email,
+        staffEmail: staff.email,
+        department: students.department,
+        batch: students.batch,
+        staffId: students.staffId,
+        regNo: students.regNo,
+        placedStatus: students.placedStatus,
+        name: students.name,
+        phoneNumber: students.phoneNumber,
+        cgpa: students.cgpa,
+        tenthMark: students.tenthMark,
+        twelfthMark: students.twelfthMark,
+        arrears: students.noOfArrears,
+        companyPlacedIn: students.companyPlacedIn,
+        rollNo: students.rollNo,
+        SkillSet: students.skillSet,
+        languageKnown: students.languagesKnown,
+        linkdinUrl: students.linkedinUrl,
+        githubUrl: students.githubUrl,
+      })
+      .from(students)
+      .leftJoin(staff, eq(students.staffId, staff.staffId))
+      //@ts-ignore
+      .where(eq(students.staffId, staffId))
+      .offset(offset)
+      .limit(limit)
+      .execute();
+
+    const totalYourStudents = await db
+      .select({ count: sql<number>`COUNT(*)`.as("count") })
+      .from(students)
+      //@ts-ignore
+      .where(eq(students.staffId, staffId))
+      .execute();
+    const yourStudentsTotal = totalYourStudents[0]?.count || 0;
+
+    const yourStudentsByBatch = yourStudentsQuery.reduce((acc, student) => {
       const batch = student.batch || "Unknown";
       acc[batch] = [...(acc[batch] || []), student];
       return acc;
-    }, {});
+    }, {} as Record<string, typeof yourStudentsQuery>);
 
     const jobList = await db.select().from(drive).execute();
 
@@ -1091,11 +1155,23 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
       success: "Authorization successful",
       staffId,
       role: userRole,
-      staffEmail, // Added
-      staffDepartment, // Added
+      staffEmail,
+      staffDepartment,
       staff: staff_details[0],
-      allStudents: allStudentsByDeptAndBatch, // Grouped by department and batch
-      yourStudents: yourStudentsByBatch, // Grouped by batch
+      allStudents: allStudentsByDeptAndBatch,
+      allStudentsPagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+      yourStudents: yourStudentsByBatch,
+      yourStudentsPagination: {
+        page,
+        limit,
+        total: yourStudentsTotal,
+        totalPages: Math.ceil(yourStudentsTotal / limit),
+      },
       drives: jobList,
     }, 200);
   } catch (error) {
