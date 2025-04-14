@@ -891,13 +891,24 @@ export const getJobsWithStudents: AppRouteHandler<GetJobsWithStudentsRoute> = as
  *     HTTP status code 200 (OK).
  */
 export const logoutAdmin: AppRouteHandler<LogoutAdminRoute> = async (c) => {
-  const jwtToken = getCookie(c, "admin_session");
+  const superAdminToken = getCookie(c, "super_admin_session");
+  const adminToken = getCookie(c, "admin_session");
   const oauthToken = getCookie(c, "oauth_session");
-  if (!jwtToken && !oauthToken) {
+
+  if (!superAdminToken && !adminToken && !oauthToken) {
     return c.json({ message: "No active session" }, HttpStatusCodes.UNAUTHORIZED);
   }
-  if (jwtToken) {
-    // Clear the admin_session cookie
+
+  if (superAdminToken) {
+    deleteCookie(c, "super_admin_session", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Lax",
+      path: "/",
+    });
+  }
+
+  if (adminToken) {
     deleteCookie(c, "admin_session", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -905,7 +916,8 @@ export const logoutAdmin: AppRouteHandler<LogoutAdminRoute> = async (c) => {
       path: "/",
     });
   }
-  else if (oauthToken) {
+
+  if (oauthToken) {
     deleteCookie(c, "oauth_session", {
       httpOnly: true,
       secure: true,
@@ -916,7 +928,6 @@ export const logoutAdmin: AppRouteHandler<LogoutAdminRoute> = async (c) => {
 
   return c.json({ message: "Logged out successfully" }, HttpStatusCodes.OK);
 };
-
 
 /**
  * Handles the creation of group mail entries for super admins.
