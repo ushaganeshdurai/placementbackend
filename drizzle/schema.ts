@@ -30,7 +30,7 @@ export const drive = pgTable("drive", {
 	jobDescription: text("job_description"),
 	driveDate: date("drive_date"),
 	expiration: timestamp({ withTimezone: true, mode: 'string' }),
-	batch: varchar({ length: 4 }),
+	batch: text(),
 	department: text().array(),
 	driveLink: text("drive_link"),
 	role: text(),
