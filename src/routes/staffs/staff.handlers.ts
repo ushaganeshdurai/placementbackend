@@ -1,6 +1,7 @@
 import { count, eq, inArray, sql } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
+import {Image} from 'imagescript'
 import db from "@/db";
 import bcrypt from 'bcryptjs'
 import type { BulkUploadStudentsRoute, CreateEventsRoute, CreateJobAlertRoute, CreateStudentsRoute, DisplayDrivesRoute, FeedGroupMailRoute, ForgotPassword, GetFeedGroupMailRoute, GetOneRoute, LoginStaffRoute, LogoutStaffRoute, PlacedStudentsRoute, RegisteredStudentsRoute, RemoveJobRoute, RemoveStudentRoute, ResetPassword, UpdatePasswordRoute } from "./staff.routes";
@@ -1438,54 +1439,50 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
     let staffId: string;
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
-      if (!decoded || !decoded.staff_id) {
-        return c.json({ error: "Invalid session: Staff ID missing" }, HttpStatusCodes.UNAUTHORIZED);
-      }
       //@ts-ignore
       staffId = decoded.staff_id;
+      if (!staffId) {
+        return c.json({ error: "Invalid session: Staff ID missing" }, HttpStatusCodes.UNAUTHORIZED);
+      }
     } catch (error) {
       console.error("JWT Verification failed:", error);
       return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
     }
 
     const eventData = await c.req.json();
-    console.log("Event anme ",eventData.event_name);
-    
-
     if (!eventData || typeof eventData !== "object") {
       return c.json({ error: "Invalid event data" }, HttpStatusCodes.BAD_REQUEST);
     }
 
     let posterUrl: string | null = null;
 
-    // ✅ Handle base64 image upload if present
+    // ✅ Handle base64 image upload and convert to WebP + AVIF
     if (eventData.file && typeof eventData.file === "string") {
       try {
         const fileBuffer = Buffer.from(eventData.file, "base64");
+        const image = await Image.decode(fileBuffer);
 
-        const fileName = eventData.fileName
-          ? `events/${Date.now()}_${eventData.fileName}`
+        const baseFileName = eventData.fileName
+          ? `events/${Date.now()}_${eventData.fileName.split('.')[0]}`
           : `events/${Date.now()}_poster`;
 
-        const contentType = eventData.fileType || "image/jpeg";
-
-        const { data, error } = await supabase.storage
+        // Encode WebP and upload
+        const webp = await image.encodeWEBP(80);
+        const { data: webpData, error: webpErr } = await supabase.storage
           .from("bucky")
-          .upload(fileName, fileBuffer, {
-            contentType,
-            cacheControl: "3600",
+          .upload(`${baseFileName}.webp`, new Blob([webp]), {
+            contentType: "image/webp",
             upsert: true,
           });
 
-        if (error || !data) {
-          console.error("Upload error:", error);
-          return c.json({ error: `Upload failed: ${error.message}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-        }
+        if (webpErr) throw webpErr;
 
-        posterUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+        // Use WebP as the main image URL
+        posterUrl = supabase.storage.from("bucky").getPublicUrl(`${baseFileName}.webp`).data.publicUrl;
+
       } catch (e) {
-        console.error("Error processing file:", e);
-        return c.json({ error: "Failed to process file upload" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+        console.error("Image processing failed:", e);
+        return c.json({ error: "Image conversion/upload failed" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
       }
     }
 
@@ -1493,7 +1490,7 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
       eventName: eventData.event_name,
       eventLink: eventData.event_link,
       date: eventData.date,
-      url: posterUrl || null,
+      url: posterUrl,
     };
 
     //@ts-ignore

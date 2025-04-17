@@ -1,6 +1,7 @@
 
 
 import { eq, inArray } from "drizzle-orm";
+import { Image } from "imagescript";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
@@ -1077,6 +1078,7 @@ export const getFeedGroupMail: AppRouteHandler<GetFeedMailRoute> = async (c) => 
  * - Inserts the event data into the database and returns the created event.
  * - Handles errors and returns appropriate HTTP status codes and error messages.
  */
+
 export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
   try {
     // Session validation
@@ -1099,15 +1101,11 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
 
     // Verify session token
     const SECRET_KEY = process.env.SECRET_KEY!;
-
-
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
       if (!decoded || !decoded.role) {
-        return c.json({ error: "Invalid session: Staff ID missing" }, HttpStatusCodes.UNAUTHORIZED);
+        return c.json({ error: "Invalid session: Role missing" }, HttpStatusCodes.UNAUTHORIZED);
       }
-      let userRole: string;
-      userRole = decoded.role as string;
     } catch (error) {
       console.error("Session Verification Error:", error);
       return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
@@ -1121,30 +1119,34 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
 
     let posterUrl: string | null = typeof eventData.url === "string" ? eventData.url : null;
 
-    // Handle file upload
-    if (eventData.file) {
-      if (typeof eventData.file !== "string") {
-        return c.json({ error: "Invalid file: Must be a base64-encoded string" }, HttpStatusCodes.BAD_REQUEST);
+    // ✅ Convert base64 image to WebP and upload
+    if (eventData.file && typeof eventData.file === "string") {
+      try {
+        const fileBuffer = Buffer.from(eventData.file, "base64");
+        const image = await Image.decode(fileBuffer);
+        const webp = await image.encodeWEBP(80);
+
+        const baseName = eventData.fileName?.split(".")[0] || "poster";
+        const fileName = `events/${Date.now()}_${baseName}.webp`;
+
+        const { data, error } = await supabase.storage
+          .from("bucky")
+          .upload(fileName, new Blob([webp]), {
+            contentType: "image/webp",
+            cacheControl: "3600",
+            upsert: true,
+          });
+
+        if (error || !data) {
+          console.error("Supabase Upload Error:", error);
+          return c.json({ error: `File upload failed: ${error.message}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+        }
+
+        posterUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+      } catch (err) {
+        console.error("WebP Conversion Error:", err);
+        return c.json({ error: "Image processing failed" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
       }
-
-      const fileBuffer = Buffer.from(eventData.file, "base64");
-      const fileName = eventData.fileName
-        ? `events/${Date.now()}_${eventData.fileName}`
-        : `events/${Date.now()}_poster`;
-
-      const { data, error } = await supabase.storage
-        .from("bucky")
-        .upload(fileName, fileBuffer, {
-          contentType: eventData.fileType || "image/jpeg",
-          cacheControl: "3600",
-          upsert: true,
-        });
-
-      if (error) {
-        console.error("Supabase Upload Error:", error);
-        return c.json({ error: `File upload failed: ${error.message}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-      }
-      posterUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
     }
 
     const newEvent = {
