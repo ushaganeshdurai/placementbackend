@@ -22,7 +22,7 @@ const routes = [
 
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'http://localhost:4173'],
+    origin: ['http://localhost:5173', 'http://localhost:4173',''],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowHeaders: ['Content-Type', 'Authorization'],
     credentials: true,

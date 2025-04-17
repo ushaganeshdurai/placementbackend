@@ -1341,12 +1341,12 @@ export const forgotPassword: AppRouteHandler<ForgotPassword> = async (c) => {
     const supabase = c.get("supabase");
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `http://localhost:5173/staff/reset-password`,
+      redirectTo: process.env.STAFF_RESET_PASSWORD_URL || `http://localhost:4173/staff/reset-password`,
     });
 
     if (error) {
       console.error("Supabase Forgot Password Error:", error);
-      return c.json({ error: error.message, success: false }, 400);
+    return c.json({ error: error.message, success: false }, 400);
     }
 
     return c.json({ message: "Password reset email sent", success: true }, 200);

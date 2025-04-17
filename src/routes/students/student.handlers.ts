@@ -470,7 +470,7 @@ export const forgotPassword: AppRouteHandler<ForgotPassword> = async (c) => {
     const supabase = c.get("supabase");
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `http://localhost:5173/student/reset-password`,
+      redirectTo: process.env.STUDENT_RESET_PASSWORD_URL||`http://localhost:4173/student/reset-password`,
     });
 
     if (error) {

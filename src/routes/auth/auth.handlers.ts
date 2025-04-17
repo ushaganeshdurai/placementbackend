@@ -39,7 +39,7 @@ export const oauth: AppRouteHandler<OAuthRoute> = async (c) => {
   const { data: oauthData, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `http://localhost:5173/auth/success?intendedRole=super_admin&returnUrl=${encodeURIComponent('/auth/superadmin')}`,
+      redirectTo: `http://localhost:5173/auth/success?intendedRole=super_admin&returnUrl=${encodeURIComponent('/auth/superadmin')}`||`http://localhost:4173/auth/success?intendedRole=super_admin&returnUrl=${encodeURIComponent('/auth/superadmin')}`,
       queryParams: {
         prompt: "select_account",
       },
@@ -65,7 +65,7 @@ export const oauthStudent: AppRouteHandler<OAuthStudentRoute> = async (c) => {
   const { data: oauthData, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `http://localhost:5173/auth/success?intendedRole=student&returnUrl=${encodeURIComponent('/auth/student')}`,
+      redirectTo: `http://localhost:5173/auth/success?intendedRole=student&returnUrl=${encodeURIComponent('/auth/student')}`||`http://localhost:4173/auth/success?intendedRole=student&returnUrl=${encodeURIComponent('/auth/student')}`,
       queryParams: {
         prompt: "select_account",
       },
@@ -89,7 +89,7 @@ export const oauthStaff: AppRouteHandler<OAuthStaffRoute> = async (c) => {
   const { data: oauthData, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `http://localhost:5173/auth/success?intendedRole=staff&returnUrl=${encodeURIComponent('/auth/staff')}`,
+      redirectTo: `http://localhost:5173/auth/success?intendedRole=staff&returnUrl=${encodeURIComponent('/auth/staff')}`||`http://localhost:4173/auth/success?intendedRole=staff&returnUrl=${encodeURIComponent('/auth/staff')}`,
       queryParams: {
         prompt: "select_account",
       },
