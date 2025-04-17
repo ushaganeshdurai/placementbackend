@@ -1,7 +1,6 @@
 
 
 import { eq, inArray } from "drizzle-orm";
-import { Image } from "imagescript";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
@@ -27,46 +26,10 @@ import type {
 } from "./superadmin.routes";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
-import nodemailer from 'nodemailer';
+import { sendJobNotificationEmail } from "@/lib/nodemailer";
 import { createClient } from "@supabase/supabase-js";
 import { coordinators } from "@/db/schemas/coordinatorsSchema";
-
-// Email configuration
-const transporter = nodemailer.createTransport({
-  service: 'gmail', // You can use any email service
-  auth: {
-    user: process.env.EMAIL_USER!,
-    pass: process.env.EMAIL_PASS!,
-  },
-});
-
-
-/**
- * Sends a notification email about a new job posting.
- * @param jobData - The job details including company name and description.
- * @param recipientEmail - The email address of the recipient.
- * @throws Will throw an error if the email fails to send.
- */
-const sendJobNotificationEmail = async (jobData: any, recipientEmail: string) => {
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: recipientEmail,
-    subject: `New Job Posting: ${jobData.companyName}`,
-    html: `
-      <h2>New Job Opportunity</h2>
-      <p>${jobData.jobDescription}</p>
-      <p>Please review and take necessary action.</p>
-    `,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    console.log('Notification email sent successfully to:', recipientEmail);
-  } catch (error) {
-    console.error('Error sending notification email:', error);
-    throw new Error('Failed to send notification email');
-  }
-};
+import { uploadImageToBucket } from "@/lib/bucketstorage";
 
 
 
@@ -1111,7 +1074,6 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
       return c.json({ error: "Invalid session" }, HttpStatusCodes.UNAUTHORIZED);
     }
 
-    // Validate and parse the request body
     const eventData = c.req.valid("json");
     if (!eventData || typeof eventData !== "object") {
       return c.json({ error: "Invalid event data" }, HttpStatusCodes.BAD_REQUEST);
@@ -1119,35 +1081,14 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
 
     let posterUrl: string | null = typeof eventData.url === "string" ? eventData.url : null;
 
-    // ✅ Convert base64 image to WebP and upload
     if (eventData.file && typeof eventData.file === "string") {
       try {
-        const fileBuffer = Buffer.from(eventData.file, "base64");
-        const image = await Image.decode(fileBuffer);
-        const webp = await image.encodeWEBP(80);
-
-        const baseName = eventData.fileName?.split(".")[0] || "poster";
-        const fileName = `events/${Date.now()}_${baseName}.webp`;
-
-        const { data, error } = await supabase.storage
-          .from("bucky")
-          .upload(fileName, new Blob([webp]), {
-            contentType: "image/webp",
-            cacheControl: "3600",
-            upsert: true,
-          });
-
-        if (error || !data) {
-          console.error("Supabase Upload Error:", error);
-          return c.json({ error: `File upload failed: ${error.message}` }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-        }
-
-        posterUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
+        posterUrl = await uploadImageToBucket(eventData.file, eventData.fileName || "poster");
       } catch (err) {
-        console.error("WebP Conversion Error:", err);
-        return c.json({ error: "Image processing failed" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+        console.error(err);
+        return c.json({ error: "Image upload failed" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
       }
-    }
+    }    
 
     const newEvent = {
       eventName: eventData.event_name,

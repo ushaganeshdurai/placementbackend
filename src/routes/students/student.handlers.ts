@@ -3,6 +3,7 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import { decode } from 'hono/jwt';
 import db from "@/db";
+import { Image } from "imagescript";
 import bcrypt from 'bcryptjs';
 import type { ApplyForDriveRoute, DisplayDrivesRoute, GetOneRoute, LoginStudentRoute, UpdatePasswordRoute, RegStudentRoute, ForgotPassword, ResetPassword, UpdateResumeRoute, RemoveApplicationRoute, CheckApplicationStatusRoute, LogoutStudentRoute, GetResumeRoute } from "./student.routes";
 import { students, applications, drive, staff } from "drizzle/schema";
@@ -551,13 +552,15 @@ export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
       const supabaseUrl = process.env.SUPABASE_URL;
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (!supabaseUrl || !supabaseKey) {
-        throw new Error("SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment variables.");
+        throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment variables.");
       }
       supabase = createClient(supabaseUrl, supabaseKey);
     }
+
     const SECRET_KEY = process.env.SECRET_KEY!;
     let studentId: string;
     let userRole: string;
+
     try {
       const decoded = await verify(jwtToken, SECRET_KEY);
       if (!decoded || !decoded.student_id) {
@@ -569,40 +572,49 @@ export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
       console.error("Session Verification Error:", error);
       return c.json({ error: "Invalid session" }, 401);
     }
+
     const updateData = c.req.valid("json");
     if (!updateData || typeof updateData !== "object") {
       return c.json({ error: "Invalid update details" }, 400);
     }
-    let resumeUrl = updateData.url; // Extract existing URL if provided
-    if (updateData.file) {
-      if (typeof updateData.file !== "string") {
-        return c.json({ error: "Invalid file: Must be a base64-encoded string" }, 400);
-      }
-      const fileBuffer = Buffer.from(updateData.file, "base64");
-      const fileName = updateData.fileName
-        ? `uploads/${Date.now()}_${updateData.fileName}`
-        : `uploads/${Date.now()}_profile-pic`;
 
-      const { data, error } = await supabase.storage
-        .from("bucky")
-        .upload(fileName, fileBuffer, {
-          contentType: updateData.fileType || "image/jpeg",
-          cacheControl: "3600",
-          upsert: true,
-        });
-      if (error) {
-        console.error("Supabase Upload Error:", error);
-        return c.json({ error: `File upload failed: ${error.message}` }, 500);
-      }
+    let resumeUrl = updateData.url;
 
-      resumeUrl = supabase.storage.from("bucky").getPublicUrl(data.path).data.publicUrl;
-      console.log("Uploaded file URL:", resumeUrl);
+    if (updateData.file && typeof updateData.file === "string") {
+      try {
+        const fileBuffer = Buffer.from(updateData.file, "base64");
+        const image = await Image.decode(fileBuffer);
+        const webp = await image.encodeWEBP(80);
+
+        const baseName = updateData.fileName?.split(".")[0] || "resume";
+        const fileName = `uploads/${Date.now()}_${baseName}.webp`;
+        const bucketName = process.env.BUCKET_NAME!;
+
+        const { data, error } = await supabase.storage
+          .from(bucketName)
+          .upload(fileName, new Blob([webp]), {
+            contentType: "image/webp",
+            cacheControl: "3600",
+            upsert: true,
+          });
+
+        if (error) {
+          console.error("Supabase Upload Error:", error);
+          return c.json({ error: `File upload failed: ${error.message}` }, 500);
+        }
+
+        resumeUrl = supabase.storage.from(bucketName).getPublicUrl(data.path).data.publicUrl;
+        console.log("Uploaded WebP file URL:", resumeUrl);
+      } catch (err) {
+        console.error("WebP Conversion Error:", err);
+        return c.json({ error: "Image processing failed" }, 500);
+      }
     }
 
     if (userRole === "student") {
       const resumeDetails = {
         ...updateData,
-        ...(resumeUrl !== undefined && { url: resumeUrl }), // Override url with new value if file was uploaded
+        ...(resumeUrl !== undefined && { url: resumeUrl }),
       };
 
       const updatedResume = await db
