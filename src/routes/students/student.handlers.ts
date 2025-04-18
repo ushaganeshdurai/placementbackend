@@ -3,13 +3,13 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import type { AppRouteHandler } from "@/lib/types";
 import { decode } from 'hono/jwt';
 import db from "@/db";
-import { Image } from "imagescript";
 import bcrypt from 'bcryptjs';
 import type { ApplyForDriveRoute, DisplayDrivesRoute, GetOneRoute, LoginStudentRoute, UpdatePasswordRoute, RegStudentRoute, ForgotPassword, ResetPassword, UpdateResumeRoute, RemoveApplicationRoute, CheckApplicationStatusRoute, LogoutStudentRoute, GetResumeRoute } from "./student.routes";
 import { students, applications, drive, staff } from "drizzle/schema";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 import { createClient } from "@supabase/supabase-js";
+import { uploadImageToBucket } from "@/lib/bucketstorage";
 
 /**
  * Handles the login process for a student.
@@ -580,36 +580,14 @@ export const updateResume: AppRouteHandler<UpdateResumeRoute> = async (c) => {
 
     let resumeUrl = updateData.url;
 
-    if (updateData.file && typeof updateData.file === "string") {
-      try {
-        const fileBuffer = Buffer.from(updateData.file, "base64");
-        const image = await Image.decode(fileBuffer);
-        const webp = await image.encodeWEBP(80);
-
-        const baseName = updateData.fileName?.split(".")[0] || "resume";
-        const fileName = `uploads/${Date.now()}_${baseName}.webp`;
-        const bucketName = process.env.BUCKET_NAME!;
-
-        const { data, error } = await supabase.storage
-          .from(bucketName)
-          .upload(fileName, new Blob([webp]), {
-            contentType: "image/webp",
-            cacheControl: "3600",
-            upsert: true,
-          });
-
-        if (error) {
-          console.error("Supabase Upload Error:", error);
-          return c.json({ error: `File upload failed: ${error.message}` }, 500);
+     if (updateData.file && typeof updateData.file === "string") {
+          try {
+            resumeUrl = await uploadImageToBucket(updateData.file, updateData.fileName || "uploads","uploads");
+          } catch (err) {
+            console.error(err);
+            return c.json({ error: "Image upload failed" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+          }
         }
-
-        resumeUrl = supabase.storage.from(bucketName).getPublicUrl(data.path).data.publicUrl;
-        console.log("Uploaded WebP file URL:", resumeUrl);
-      } catch (err) {
-        console.error("WebP Conversion Error:", err);
-        return c.json({ error: "Image processing failed" }, 500);
-      }
-    }
 
     if (userRole === "student") {
       const resumeDetails = {

@@ -286,84 +286,6 @@ export const displayDrives: AppRouteHandler<DisplayDrivesRoute> = async (c) => {
  * - 403: Forbidden access due to insufficient role.
  * - 500: Internal server error during database query.
  */
-// export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
-//   deleteCookie(c, "admin_session")
-//   deleteCookie(c, "oauth_session")
-//   deleteCookie(c, "student_session")
-//   const jwtToken = getCookie(c, "staff_session");
-
-//   if (!jwtToken) {
-//     return c.json({ error: "Unauthorized: No session found", success: false }, 401);
-//   }
-
-//   let userId = null;
-//   let userRole = null;
-//   let currentStaffEmail = null; // Rename for clarity
-
-//   try {
-//     const SECRET_KEY = process.env.SECRET_KEY!;
-//     const decoded = await verify(jwtToken, SECRET_KEY);
-//     if (!decoded) throw new Error("Invalid session");
-//     userId = decoded.id;
-//     userRole = decoded.role;
-//     currentStaffEmail = decoded.email; // Email of the logged-in staff
-//     if (!currentStaffEmail) throw new Error("Staff email not found in session");
-//   } catch (error) {
-//     if (error === "TokenExpiredError") {
-//       return c.json({ error: "Session expired", success: false }, 401);
-//     }
-//     console.error("Session Verification Error:", error);
-//     return c.json({ error: "Invalid session", success: false }, 401);
-//   }
-
-//   if (userRole !== "staff") {
-//     return c.json({ error: "Unauthorized: Insufficient role", success: false }, 403);
-//   }
-
-//   try {
-//     const { driveId } = c.req.valid("param");
-//     const registeredStudentsList = await db
-//       .select({
-//         applicationId: applications.id,
-//         studentName: students.name,
-//         email: students.email,
-//         cgpa: students.cgpa,
-//         batch: students.batch,
-//         department: students.department,
-//         appliedAt: applications.appliedAt,
-//         phoneNumber: students.phoneNumber,
-//         noOfArrears: students.noOfArrears,
-//         placedStatus: students.placedStatus,
-//         staffEmail: staff.email, // Fetch the staff email associated with the student
-//       })
-//       .from(applications)
-//       .innerJoin(students, eq(applications.studentId, students.studentId))
-//       .innerJoin(drive, eq(applications.driveId, drive.id))
-//       .leftJoin(staff, eq(students.staffId, staff.staffId)) // Join with staff table
-//       .where(eq(applications.driveId, driveId))
-//       .execute();
-
-//     // Add staffEmail from session to each student
-//     const enrichedStudents = registeredStudentsList.map(student => ({
-//       ...student,
-//       staffEmail, // Add the current staff's email from the session
-//     }));
-
-//     return c.json(
-//       {
-//         success: "Fetched applications successfully",
-//         userId,
-//         role: userRole,
-//         registered_students: registeredStudentsList,
-//         currentStaffEmail, // Optionally return the logged-in staff's email
-//       },
-//       200
-//     );
-//   } catch (error) {
-//     console.error("Database query error:", error);
-//     return c.json({ error: "Failed to fetch data", success: false }, 500);
-//   }
-// };
 // @ts-ignore
 export const registeredStudents: AppRouteHandler<RegisteredStudentsRoute> = async (c) => {
   deleteCookie(c, "admin_session");
@@ -1426,7 +1348,7 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
 
     if (eventData.file && typeof eventData.file === "string") {
       try {
-        posterUrl = await uploadImageToBucket(eventData.file, eventData.fileName || "poster");
+        posterUrl = await uploadImageToBucket(eventData.file, eventData.fileName || "poster","events");
       } catch (err) {
         console.error(err);
         return c.json({ error: "Image upload failed" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);

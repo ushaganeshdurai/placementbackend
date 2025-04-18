@@ -4,6 +4,7 @@ import { Image } from "imagescript";
 export async function uploadImageToBucket(
   base64String: string,
   fileName: string,
+  kind:string,
   bucketName = process.env.BUCKET_NAME!
 ): Promise<string> {
   const supabaseUrl = process.env.SUPABASE_URL!;
@@ -16,7 +17,7 @@ export async function uploadImageToBucket(
     const webp = await image.encodeWEBP(80);
 
     const baseName = fileName.split(".")[0] || "poster";
-    const uniqueFileName = `events/${Date.now()}_${baseName}.webp`;
+    const uniqueFileName = `${kind}/${Date.now()}_${baseName}.webp`;
 
     const { data, error } = await supabase.storage
       .from(bucketName)

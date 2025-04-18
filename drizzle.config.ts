@@ -2,10 +2,17 @@ import 'dotenv/config';
 import { defineConfig } from 'drizzle-kit';
 
 const schemas = [
-  './src/db/schemas/staffSchema.ts',
-  './src/db/schemas/studentSchema.ts',
-  './src/db/schemas/superAdminSchema.ts',
-  './src/db/schemas/users.ts'
+  '@/db/schemas/staffSchema.ts',
+  '@/db/schemas/studentSchema.ts',
+  '@/db/schemas/superAdminSchema.ts',
+  '@/db/schemas/users.ts',
+  '@/db/schemas/applicationsSchema.ts',
+  '@/db/schemas/coordinatorsSchema.ts',
+  '@/db/schemas/driveSchema.ts',
+  '@/db/schemas/groupMailSchema.ts',
+  '@/db/schemas/eventSchema.ts',
+  '@/db/schemas/'
+
 ];
 
 export default defineConfig({

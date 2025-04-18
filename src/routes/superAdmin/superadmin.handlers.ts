@@ -1083,7 +1083,7 @@ export const createevents: AppRouteHandler<CreateEventsRoute> = async (c) => {
 
     if (eventData.file && typeof eventData.file === "string") {
       try {
-        posterUrl = await uploadImageToBucket(eventData.file, eventData.fileName || "poster");
+        posterUrl = await uploadImageToBucket(eventData.file, eventData.fileName || "poster","events");
       } catch (err) {
         console.error(err);
         return c.json({ error: "Image upload failed" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
