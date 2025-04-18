@@ -16,7 +16,7 @@ export async function uploadImageToBucket(
     const image = await Image.decode(fileBuffer);
     const webp = await image.encodeWEBP(80);
 
-    const baseName = fileName.split(".")[0] || "poster";
+    const baseName = fileName.split(".")[0] || `${kind}`;
     const uniqueFileName = `${kind}/${Date.now()}_${baseName}.webp`;
 
     const { data, error } = await supabase.storage
