@@ -5,7 +5,7 @@ import { drive, students } from "drizzle/schema";
 
 
 export const applications = pgTable("applications", {
-    id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity({ name: "applications_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+    id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity({ name: "applications_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 92233775807, cache: 1 }),
     studentId: uuid("student_id").notNull(),
     driveId: bigint("drive_id", { mode: "number" }).notNull(),
     appliedAt: timestamp("applied_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),

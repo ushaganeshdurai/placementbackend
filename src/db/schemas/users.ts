@@ -6,7 +6,7 @@ const auth = pgSchema("auth");
 
 export const users = auth.table("users", {
     id: uuid('id').primaryKey(),
-    email: text('email').notNull()
+    email: text('email').notNull().unique()
 });
 
 

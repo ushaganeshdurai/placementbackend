@@ -4,6 +4,16 @@ import { sql } from "drizzle-orm"
 export const appliedOrNot = pgEnum("applied_or_not", ['yes', 'partial', 'no'])
 export const placedOrNot = pgEnum("placed_or_not", ['yes', 'no'])
 export const userRole = pgEnum("user_role", ['staff', 'student', 'super_admin'])
+import { pgSchema } from "drizzle-orm/pg-core";
+
+
+const auth = pgSchema("auth");
+
+export const users = auth.table("users", {
+    id: uuid('id').primaryKey(),
+    email: text('email').notNull()
+});
+
 
 
 export const groupMails = pgTable("group_mails", {
@@ -24,7 +34,7 @@ export const coordinators = pgTable("coordinators", {
 
 export const drive = pgTable("drive", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "drive_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "drive_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 92233, cache: 1 }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	companyName: varchar("company_name"),
 	jobDescription: text("job_description"),
@@ -117,7 +127,7 @@ export const staff = pgTable("staff", {
 
 export const events = pgTable("events", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "events_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "events_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 922335807, cache: 1 }),
 	eventName: text("event_name").notNull(),
 	eventLink: text("event_link"),
 	url: text(),
@@ -126,7 +136,7 @@ export const events = pgTable("events", {
 
 export const applications = pgTable("applications", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity({ name: "applications_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity({ name: "applications_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 922335807, cache: 1 }),
 	studentId: uuid("student_id").notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	driveId: bigint("drive_id", { mode: "number" }).notNull(),

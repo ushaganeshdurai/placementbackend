@@ -6,9 +6,9 @@ import { users } from "./users";
 
 export const staff = pgTable('staff', {
   staffId: uuid('staff_id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
-  userId: text('user_id').references(() => users.id),
-  email: text('email_id').notNull(),
+  name: text('name'),
+  userId: uuid('user_id').references(() => users.id),
+  email: text('email').notNull(),
   password: text('password'),
   department: text('department'),
 }, (staff) => ({

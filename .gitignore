@@ -10,13 +10,13 @@
 
 # deps
 node_modules/
-
+./src/db/schemas/mergedSchemas.ts
 # env
 .env
 .env.production
 .env.test
 .env.example
-
+./supabase_all.sql
 # logs
 logs/
 *.log

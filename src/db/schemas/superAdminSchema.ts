@@ -7,6 +7,7 @@ import { users } from "./users";
 export const superAdmin = pgTable('super_admin', {
   id: uuid('id').defaultRandom().primaryKey(), 
   email: text('email').notNull().unique(),
+  name:text('name'),
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { 
