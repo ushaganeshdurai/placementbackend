@@ -18,13 +18,13 @@ export default defineConfig({
   schema: [...schemas],
   dialect: 'postgresql',
   dbCredentials: {
-    // url: process.env.DATABASE_URL!,
-    host: 'localhost',
-    port: 54322,
-    user: 'postgres',
-    ssl:false,
-    password: 'postgres',
-    database: 'postgres',
+    url: process.env.DATABASE_URL!,
+    // host: 'localhost',
+    // port: 54322,
+    // user: 'postgres',
+    // ssl:false,
+    // password: 'postgres',
+    // database: 'postgres',
   },
   schemaFilter: ["public"]
 });
